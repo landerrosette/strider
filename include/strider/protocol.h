@@ -1,5 +1,5 @@
-#ifndef PROTOCOL_H
-#define PROTOCOL_H
+#ifndef STRIDER_PROTOCOL_H
+#define STRIDER_PROTOCOL_H
 
 
 #define STRIDER_GENL_FAMILY_NAME "strider"
@@ -24,4 +24,4 @@ enum strider_genl_attrs {
 #define STRIDER_NLA_MAX (__STRIDER_NLA_MAX - 1)
 
 
-#endif //PROTOCOL_H
+#endif //STRIDER_PROTOCOL_H

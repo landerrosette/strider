@@ -1,2 +1,3 @@
 obj-m := strider.o
 strider-objs := main.o netlink.o
+ccflags-y += -I$(src)/../include
