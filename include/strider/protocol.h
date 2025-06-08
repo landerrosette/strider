@@ -23,5 +23,9 @@ enum strider_genl_attrs {
 
 #define STRIDER_NLA_MAX (__STRIDER_NLA_MAX - 1)
 
+enum strider_rule_actions {
+    STRIDER_ACTION_DROP,
+};
+
 
 #endif //STRIDER_PROTOCOL_H
