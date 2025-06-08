@@ -1,5 +1,5 @@
 TARGET := striderctl
-SRCS := striderctl.c
+SRCS := main.c
 OBJS := $(patsubst %.c, %.o, $(SRCS))
 DEPS := $(patsubst %.c, %.d, $(SRCS))
 
