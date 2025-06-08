@@ -22,7 +22,9 @@ static struct nf_hook_ops strider_nf_ops = {
 };
 
 static int __init strider_module_init(void) {
-    int ret = strider_nl_init();
+    int ret;
+
+    ret = strider_nl_init();
     if (ret < 0) {
         pr_err("Failed to initialize netlink: %d\n", ret);
         goto out;
