@@ -18,7 +18,7 @@ static struct nf_hook_ops strider_nf_ops = {
     .hook = strider_nf_hookfn,
     .pf = NFPROTO_IPV4,
     .hooknum = NF_INET_PRE_ROUTING,
-    .priority = NF_IP_PRI_FIRST,
+    .priority = NF_IP_PRI_CONNTRACK_DEFRAG + 1, // just after conntrack defrag
 };
 
 static int __init strider_module_init(void) {
