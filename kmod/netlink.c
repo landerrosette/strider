@@ -32,6 +32,18 @@ static struct genl_family strider_genl_family = {
     .module = THIS_MODULE,
 };
 
+static int strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info) {
+    if (!info->attrs[STRIDER_NLA_KEYWORD] || !info->attrs[STRIDER_NLA_ACTION])
+        return -EINVAL;
+
+    char *keyword = nla_data(info->attrs[STRIDER_NLA_KEYWORD]);
+    u8 action = nla_get_u8(info->attrs[STRIDER_NLA_ACTION]);
+
+    pr_info("ADD_RULE received -> Keyword: '%s', Action: %u\n", keyword, action);
+
+    return 0;
+}
+
 int strider_nl_init(void) {
     int ret = genl_register_family(&strider_genl_family);
     if (ret < 0)
@@ -41,14 +53,4 @@ int strider_nl_init(void) {
 
 void strider_nl_exit(void) {
     genl_unregister_family(&strider_genl_family);
-}
-
-static int strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info) {
-    if (!info->attrs[STRIDER_NLA_KEYWORD] || !info->attrs[STRIDER_NLA_ACTION])
-        return -EINVAL;
-
-    char *keyword = nla_data(info->attrs[STRIDER_NLA_KEYWORD]);
-    u8 action = nla_get_u8(info->attrs[STRIDER_NLA_ACTION]);
-
-    return 0;
 }
