@@ -38,6 +38,8 @@ static int strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info)
 
     char *keyword = nla_data(info->attrs[STRIDER_NLA_KEYWORD]);
     u8 action = nla_get_u8(info->attrs[STRIDER_NLA_ACTION]);
+    if (action == STRIDER_ACTION_UNSPEC)
+        return -EINVAL;
 
     pr_info("ADD_RULE received -> Keyword: '%s', Action: %u\n", keyword, action);
 

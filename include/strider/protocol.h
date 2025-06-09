@@ -5,27 +5,29 @@
 #define STRIDER_GENL_FAMILY_NAME "strider"
 #define STRIDER_GENL_VERSION 1
 
-enum strider_genl_commands {
+enum {
     STRIDER_CMD_UNSPEC,
     STRIDER_CMD_ADD_RULE,
     STRIDER_CMD_DEL_RULE,
     __STRIDER_CMD_MAX,
-};
+}; // commands that can be sent over netlink
 
 #define STRIDER_CMD_MAX (__STRIDER_CMD_MAX - 1)
 
-enum strider_genl_attrs {
+enum {
     STRIDER_NLA_UNSPEC,
     STRIDER_NLA_KEYWORD,
     STRIDER_NLA_ACTION,
     __STRIDER_NLA_MAX,
-};
+}; // netlink attributes used in the messages
 
-#define STRIDER_NLA_MAX (__STRIDER_NLA_MAX - 1)
+#define STRIDER_NLA_MAX (__STRIDER_NLA_MAX - 1) //
 
-enum strider_rule_actions {
+enum {
+    STRIDER_ACTION_UNSPEC,
     STRIDER_ACTION_DROP,
-};
+    STRIDER_ACTION_ACCEPT,
+}; // actions that can be taken on a packet matching a rule
 
 
 #endif //STRIDER_PROTOCOL_H
