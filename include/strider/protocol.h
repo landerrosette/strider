@@ -25,7 +25,6 @@ enum {
 
 #define STRIDER_NLA_MAX (__STRIDER_NLA_MAX - 1)
 
-
 enum {
     STRIDER_ACTION_UNSPEC,
     STRIDER_ACTION_DROP,
