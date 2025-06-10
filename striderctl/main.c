@@ -47,8 +47,7 @@ out:
 }
 
 static void strider_disconnect(struct strider_nl_connection *conn) {
-    if (conn && conn->sock)
-        nl_socket_free(conn->sock);
+    nl_socket_free(conn->sock);
 }
 
 static int do_add_rule(struct strider_nl_connection *conn, const char *keyword, const char *action_str) {
