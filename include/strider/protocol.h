@@ -18,12 +18,13 @@ enum {
 
 enum {
     STRIDER_NLA_UNSPEC,
-    STRIDER_NLA_PATTERN,
-    STRIDER_NLA_ACTION,
+    STRIDER_NLA_PATTERN, // type: NLA_NUL_STRING
+    STRIDER_NLA_ACTION,  // type: NLA_U8
     __STRIDER_NLA_MAX,
 }; // netlink attributes used in the messages
 
-#define STRIDER_NLA_MAX (__STRIDER_NLA_MAX - 1) //
+#define STRIDER_NLA_MAX (__STRIDER_NLA_MAX - 1)
+
 
 enum {
     STRIDER_ACTION_UNSPEC,

@@ -7,6 +7,8 @@
 #include <net/genetlink.h>
 #include <strider/protocol.h>
 
+#include "matching.h"
+
 static int strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info);
 
 static const struct nla_policy strider_add_rule_policy[STRIDER_NLA_MAX + 1] = {
@@ -41,9 +43,7 @@ static int strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info)
     if (action == STRIDER_ACTION_UNSPEC)
         return -EINVAL;
 
-    pr_info("ADD_RULE received -> Pattern: '%s', Action: %u\n", pattern, action);
-
-    return 0;
+    return strider_matching_add_rule(pattern, action);
 }
 
 int strider_nl_init(void) {
