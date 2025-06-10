@@ -7,7 +7,7 @@
 #include <linux/netfilter_ipv4.h>
 
 #include "matching.h"
-#include "netlink.h"
+#include "control.h"
 
 static unsigned int strider_nf_hookfn(void *priv,
                                       struct sk_buff *skb,
@@ -33,9 +33,9 @@ static struct nf_hook_ops strider_nf_ops = {
 static int __init strider_module_init(void) {
     int ret;
 
-    ret = strider_nl_init();
+    ret = strider_control_init();
     if (ret < 0) {
-        pr_err("Failed to initialize netlink: %d\n", ret);
+        pr_err("Failed to initialize control interface: %d\n", ret);
         goto out;
     }
 
@@ -56,7 +56,7 @@ static int __init strider_module_init(void) {
 out_matching_exit:
     strider_matching_exit();
 out_nl_exit:
-    strider_nl_exit();
+    strider_control_exit();
 out:
     return ret;
 }
@@ -64,7 +64,7 @@ out:
 static void __exit strider_module_exit(void) {
     nf_unregister_net_hook(&init_net, &strider_nf_ops);
     strider_matching_exit();
-    strider_nl_exit();
+    strider_control_exit();
 }
 
 module_init(strider_module_init);

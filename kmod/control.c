@@ -1,6 +1,6 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include "netlink.h"
+#include "control.h"
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -46,13 +46,13 @@ static int strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info)
     return strider_matching_add_rule(pattern, action);
 }
 
-int strider_nl_init(void) {
+int strider_control_init(void) {
     int ret = genl_register_family(&strider_genl_family);
     if (ret < 0)
         pr_err("Failed to register genl family: %d\n", ret);
     return ret;
 }
 
-void strider_nl_exit(void) {
+void strider_control_exit(void) {
     genl_unregister_family(&strider_genl_family);
 }
