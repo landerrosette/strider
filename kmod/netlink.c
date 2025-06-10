@@ -10,7 +10,7 @@
 static int strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info);
 
 static const struct nla_policy strider_add_rule_policy[STRIDER_NLA_MAX + 1] = {
-    [STRIDER_NLA_KEYWORD] = {.type = NLA_NUL_STRING, .len = 256},
+    [STRIDER_NLA_KEYWORD] = {.type = NLA_NUL_STRING, .len = STRIDER_KEYWORD_MAX_LEN},
     [STRIDER_NLA_ACTION] = {.type = NLA_U8},
 };
 

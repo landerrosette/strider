@@ -2,6 +2,8 @@
 #define STRIDER_PROTOCOL_H
 
 
+#define STRIDER_KEYWORD_MAX_LEN 256 // maximum length of a keyword in bytes
+
 #define STRIDER_GENL_FAMILY_NAME "strider"
 #define STRIDER_GENL_VERSION 1
 
