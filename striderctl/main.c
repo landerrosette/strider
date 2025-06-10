@@ -50,7 +50,7 @@ static void strider_disconnect(struct strider_nl_connection *conn) {
     nl_socket_free(conn->sock);
 }
 
-static int do_add_rule(struct strider_nl_connection *conn, const char *keyword, const char *action_str) {
+static int do_add_rule(struct strider_nl_connection *conn, const char *pattern, const char *action_str) {
     int ret;
 
     uint8_t action;
@@ -72,9 +72,9 @@ static int do_add_rule(struct strider_nl_connection *conn, const char *keyword, 
     genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, conn->family_id, 0, NLM_F_REQUEST | NLM_F_ACK, STRIDER_CMD_ADD_RULE,
                 STRIDER_GENL_VERSION);
 
-    ret = nla_put_string(msg, STRIDER_NLA_KEYWORD, keyword);
+    ret = nla_put_string(msg, STRIDER_NLA_PATTERN, pattern);
     if (ret < 0) {
-        fprintf(stderr, "Error: Could not add keyword attribute: %s\n", nl_geterror(ret));
+        fprintf(stderr, "Error: Could not add pattern attribute: %s\n", nl_geterror(ret));
         goto out_msg_free;
     }
 
@@ -84,7 +84,7 @@ static int do_add_rule(struct strider_nl_connection *conn, const char *keyword, 
         goto out_msg_free;
     }
 
-    printf("Sending add rule request for keyword \"%s\" with action \"%s\"...\n", keyword, action_str);
+    printf("Sending add rule request for pattern \"%s\" with action \"%s\"...\n", pattern, action_str);
     ret = nl_send_auto(conn->sock, msg);
     if (ret < 0) {
         nl_perror(ret, "Error: Could not send add rule request");
@@ -95,7 +95,7 @@ static int do_add_rule(struct strider_nl_connection *conn, const char *keyword, 
     if (ret < 0) {
         nl_perror(ret, "Error receiving response");
     } else {
-        printf("Received response for keyword \"%s\" with action \"%s\".\n", keyword, action_str);
+        printf("Received response for pattern \"%s\" with action \"%s\".\n", pattern, action_str);
     }
 
     return 0;
@@ -114,9 +114,9 @@ int main(int argc, char *argv[]) {
 
     const char *command = argv[1];
     if (strcmp(command, "add") == 0) {
-        const char *keyword = argv[2];
+        const char *pattern = argv[2];
         const char *action = argv[3];
-        if (do_add_rule(&conn, keyword, action))
+        if (do_add_rule(&conn, pattern, action))
             goto out_disconnect;
     } else {
         fprintf(stderr, "Error: Unknown command \"%s\"\n", command);

@@ -10,7 +10,7 @@
 static int strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info);
 
 static const struct nla_policy strider_add_rule_policy[STRIDER_NLA_MAX + 1] = {
-    [STRIDER_NLA_KEYWORD] = {.type = NLA_NUL_STRING, .len = STRIDER_KEYWORD_MAX_LEN},
+    [STRIDER_NLA_PATTERN] = {.type = NLA_NUL_STRING, .len = STRIDER_PATTERN_MAX_LEN},
     [STRIDER_NLA_ACTION] = {.type = NLA_U8},
 };
 
@@ -33,15 +33,15 @@ static struct genl_family strider_genl_family = {
 };
 
 static int strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info) {
-    if (!info->attrs[STRIDER_NLA_KEYWORD] || !info->attrs[STRIDER_NLA_ACTION])
+    if (!info->attrs[STRIDER_NLA_PATTERN] || !info->attrs[STRIDER_NLA_ACTION])
         return -EINVAL;
 
-    char *keyword = nla_data(info->attrs[STRIDER_NLA_KEYWORD]);
+    char *pattern = nla_data(info->attrs[STRIDER_NLA_PATTERN]);
     u8 action = nla_get_u8(info->attrs[STRIDER_NLA_ACTION]);
     if (action == STRIDER_ACTION_UNSPEC)
         return -EINVAL;
 
-    pr_info("ADD_RULE received -> Keyword: '%s', Action: %u\n", keyword, action);
+    pr_info("ADD_RULE received -> Pattern: '%s', Action: %u\n", pattern, action);
 
     return 0;
 }

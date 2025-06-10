@@ -20,7 +20,7 @@ struct strider_rule {
     struct rcu_head rcu;
 
     u8 action;
-    char keyword[]; // flexible array member
+    char pattern[]; // flexible array member
 };
 
 static LIST_HEAD(strider_rules_list);
@@ -65,12 +65,12 @@ void strider_matching_exit(void) {
     mutex_unlock(&strider_rules_list_lock);
 }
 
-int strider_matching_add_rule(const char *keyword, u8 action) {
-    struct strider_rule *rule = kmalloc(sizeof(*rule) + strlen(keyword) + 1, GFP_KERNEL);
+int strider_matching_add_rule(const char *pattern, u8 action) {
+    struct strider_rule *rule = kmalloc(sizeof(*rule) + strlen(pattern) + 1, GFP_KERNEL);
     if (!rule)
         return -ENOMEM;
     rule->action = action;
-    strcpy(rule->keyword, keyword);
+    strcpy(rule->pattern, pattern);
 
     mutex_lock(&strider_rules_list_lock);
     list_add_rcu(&rule->list, &strider_rules_list);
@@ -79,12 +79,12 @@ int strider_matching_add_rule(const char *keyword, u8 action) {
     return 0;
 }
 
-int strider_matching_del_rule(const char *keyword, u8 action) {
+int strider_matching_del_rule(const char *pattern, u8 action) {
     mutex_lock(&strider_rules_list_lock);
 
     struct strider_rule *rule, *victim = NULL;
     list_for_each_entry(rule, &strider_rules_list, list) {
-        if (strcmp(rule->keyword, keyword) == 0 && rule->action == action) {
+        if (strcmp(rule->pattern, pattern) == 0 && rule->action == action) {
             victim = rule;
             break;
         }
@@ -99,7 +99,7 @@ int strider_matching_del_rule(const char *keyword, u8 action) {
 }
 
 enum strider_verdict strider_matching_packet(struct sk_buff *skb) {
-    const char *payload = "this is a test payload with bad-keyword inside";
+    const char *payload = "this is a test payload with bad pattern inside";
 
     enum strider_verdict final_verdict = STRIDER_VERDICT_NOMATCH;
 
@@ -107,7 +107,7 @@ enum strider_verdict strider_matching_packet(struct sk_buff *skb) {
 
     struct strider_rule *rule;
     list_for_each_entry_rcu(rule, &strider_rules_list, list) {
-        if (strstr(payload, rule->keyword)) {
+        if (strstr(payload, rule->pattern)) {
             enum strider_verdict current_verdict;
             switch (rule->action) {
                 case STRIDER_ACTION_DROP:

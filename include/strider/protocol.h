@@ -2,7 +2,7 @@
 #define STRIDER_PROTOCOL_H
 
 
-#define STRIDER_KEYWORD_MAX_LEN 256 // maximum length of a keyword in bytes
+#define STRIDER_PATTERN_MAX_LEN 256 // maximum length of a pattern in bytes
 
 #define STRIDER_GENL_FAMILY_NAME "strider"
 #define STRIDER_GENL_VERSION 1
@@ -18,7 +18,7 @@ enum {
 
 enum {
     STRIDER_NLA_UNSPEC,
-    STRIDER_NLA_KEYWORD,
+    STRIDER_NLA_PATTERN,
     STRIDER_NLA_ACTION,
     __STRIDER_NLA_MAX,
 }; // netlink attributes used in the messages
