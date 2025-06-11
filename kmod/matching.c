@@ -10,7 +10,7 @@
 #include <linux/rcupdate.h>
 #include <linux/slab.h>
 #include <linux/string.h>
-#include <strider/protocol.h>
+#include <strider/defs.h>
 
 #define STRIDER_VERDICT_HIGHEST_PRECEDENCE 0
 #define STRIDER_VERDICT_LOWEST_PRECEDENCE INT_MAX

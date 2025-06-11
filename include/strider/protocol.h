@@ -2,7 +2,7 @@
 #define STRIDER_PROTOCOL_H
 
 
-#define STRIDER_PATTERN_MAX_LEN 256 // maximum length of a pattern in bytes
+#include <strider/defs.h>
 
 #define STRIDER_GENL_FAMILY_NAME "strider"
 #define STRIDER_GENL_VERSION 1
@@ -24,12 +24,6 @@ enum {
 }; // netlink attributes used in the messages
 
 #define STRIDER_NLA_MAX (__STRIDER_NLA_MAX - 1)
-
-enum {
-    STRIDER_ACTION_UNSPEC,
-    STRIDER_ACTION_DROP,
-    STRIDER_ACTION_ACCEPT,
-}; // actions that can be taken on a packet matching a rule
 
 
 #endif //STRIDER_PROTOCOL_H

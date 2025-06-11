@@ -6,8 +6,8 @@
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
 
-#include "matching.h"
 #include "control.h"
+#include "matching.h"
 
 static unsigned int strider_nf_hookfn(void *priv,
                                       struct sk_buff *skb,
