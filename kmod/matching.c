@@ -24,7 +24,6 @@ struct strider_rule {
 };
 
 static LIST_HEAD(strider_rules_list);
-
 static DEFINE_MUTEX(strider_rules_list_lock); // lock to protect write access
 
 static void strider_rule_free_rcu_callback(struct rcu_head *rcu) {
@@ -51,9 +50,6 @@ int strider_matching_init(void) {
 }
 
 void strider_matching_exit(void) {
-    // When the module exits, there are no more readers.
-    // We can safely delete without waiting for a grace period.
-    // However, we must first acquire the mutex to prevent any last-minute writes from racing with our cleanup.
     mutex_lock(&strider_rules_list_lock);
 
     struct strider_rule *rule, *tmp;
@@ -98,16 +94,14 @@ int strider_matching_del_rule(const char *pattern, u8 action) {
     return victim ? 0 : -ENOENT;
 }
 
-enum strider_verdict strider_matching_packet(struct sk_buff *skb) {
-    const char *payload = "this is a test payload with bad pattern inside";
-
+enum strider_verdict strider_match(const char *payload, size_t len) {
     enum strider_verdict final_verdict = STRIDER_VERDICT_NOMATCH;
 
     rcu_read_lock();
 
     struct strider_rule *rule;
     list_for_each_entry_rcu(rule, &strider_rules_list, list) {
-        if (strstr(payload, rule->pattern)) {
+        if (strnstr(payload, rule->pattern, len)) {
             enum strider_verdict current_verdict;
             switch (rule->action) {
                 case STRIDER_ACTION_DROP:
