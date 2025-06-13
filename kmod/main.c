@@ -59,7 +59,8 @@ static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const str
 
     if (payload_len == 0) return NF_ACCEPT;
 
-    switch (strider_match(payload, payload_len)) {
+    enum strider_verdict verdict = strider_matching_get_verdict(payload, payload_len);
+    switch (verdict) {
         case STRIDER_VERDICT_DROP:
             return NF_DROP;
         case STRIDER_VERDICT_ACCEPT:

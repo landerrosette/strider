@@ -18,7 +18,7 @@ int strider_matching_add_rule(const char *pattern, u8 action);
 
 int strider_matching_del_rule(const char *pattern, u8 action);
 
-enum strider_verdict strider_match(const char *payload, size_t len);
+enum strider_verdict strider_matching_get_verdict(const char *payload, size_t len);
 
 
 #endif //STRIDER_KERNEL_MATCHING_H

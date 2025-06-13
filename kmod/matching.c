@@ -31,6 +31,9 @@ static void strider_rule_free_rcu_callback(struct rcu_head *rcu) {
     kfree(rule);
 }
 
+// This function acts as a central policy decision point for rule precedence.
+// By encapsulating this logic, it allows for future extensions, such as configurable precedence.
+// A lower return value signifies a higher precedence.
 static inline int get_verdict_precedence(enum strider_verdict verdict) {
     switch (verdict) {
         case STRIDER_VERDICT_DROP:
@@ -62,17 +65,33 @@ void strider_matching_exit(void) {
 }
 
 int strider_matching_add_rule(const char *pattern, u8 action) {
-    struct strider_rule *rule = kmalloc(sizeof(*rule) + strlen(pattern) + 1, GFP_KERNEL);
-    if (!rule)
-        return -ENOMEM;
+    int ret;
+    mutex_lock(&strider_rules_list_lock);
+
+    // check if the rule already exists
+    struct strider_rule *rule;
+    list_for_each_entry(rule, &strider_rules_list, list) {
+        if (strcmp(rule->pattern, pattern) == 0 && rule->action == action) {
+            ret = -EEXIST;
+            goto out_unlock;
+        }
+    }
+
+    rule = kmalloc(sizeof(*rule) + strlen(pattern) + 1, GFP_KERNEL);
+    if (!rule) {
+        ret = -ENOMEM;
+        goto out_unlock;
+    }
     rule->action = action;
     strcpy(rule->pattern, pattern);
 
-    mutex_lock(&strider_rules_list_lock);
     list_add_rcu(&rule->list, &strider_rules_list);
-    mutex_unlock(&strider_rules_list_lock);
 
-    return 0;
+    ret = 0;
+
+out_unlock:
+    mutex_unlock(&strider_rules_list_lock);
+    return ret;
 }
 
 int strider_matching_del_rule(const char *pattern, u8 action) {
@@ -88,13 +107,11 @@ int strider_matching_del_rule(const char *pattern, u8 action) {
     if (victim) list_del_rcu(&victim->list);
 
     mutex_unlock(&strider_rules_list_lock);
-
     if (victim) call_rcu(&victim->rcu, strider_rule_free_rcu_callback); // schedule the actual memory free
-
     return victim ? 0 : -ENOENT;
 }
 
-enum strider_verdict strider_match(const char *payload, size_t len) {
+enum strider_verdict strider_matching_get_verdict(const char *payload, size_t len) {
     enum strider_verdict final_verdict = STRIDER_VERDICT_NOMATCH;
 
     rcu_read_lock();
