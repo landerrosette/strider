@@ -80,7 +80,7 @@ static int strider_nl_del_rule_doit(struct sk_buff *skb, struct genl_info *info)
 int strider_control_init(void) {
     int ret = genl_register_family(&strider_genl_family);
     if (ret < 0)
-        pr_err("Failed to register genl family: %d\n", ret);
+        pr_err("Failed to register generic netlink family: %d\n", ret);
     return ret;
 }
 

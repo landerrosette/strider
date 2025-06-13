@@ -66,6 +66,7 @@ void strider_matching_exit(void) {
 
 int strider_matching_add_rule(const char *pattern, u8 action) {
     int ret;
+
     mutex_lock(&strider_rules_list_lock);
 
     // check if the rule already exists
@@ -107,7 +108,9 @@ int strider_matching_del_rule(const char *pattern, u8 action) {
     if (victim) list_del_rcu(&victim->list);
 
     mutex_unlock(&strider_rules_list_lock);
+
     if (victim) call_rcu(&victim->rcu, strider_rule_free_rcu_callback); // schedule the actual memory free
+
     return victim ? 0 : -ENOENT;
 }
 

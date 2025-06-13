@@ -35,6 +35,9 @@ static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const str
         struct tcphdr *tcph = (struct tcphdr *) ((const __u8 *) iph + ip_hdr_len);
         unsigned int tcp_hdr_len = tcph->doff * 4;
 
+        // First, ensure the TCP header length field itself is valid.
+        // Second, ensure the combined IP+TCP headers do not exceed the total packet length.
+        // This prevents parsing malformed packets.
         if (tcp_hdr_len < sizeof(struct tcphdr))
             return NF_ACCEPT;
         if (ip_hdr_len + tcp_hdr_len > ntohs(iph->tot_len))
@@ -82,16 +85,10 @@ static int __init strider_module_init(void) {
     int ret;
 
     ret = strider_control_init();
-    if (ret < 0) {
-        pr_err("Failed to initialize control interface: %d\n", ret);
-        goto out;
-    }
+    if (ret < 0) goto out;
 
     ret = strider_matching_init();
-    if (ret < 0) {
-        pr_err("Failed to initialize matching engine: %d\n", ret);
-        goto out_nl_exit;
-    }
+    if (ret < 0) goto out_control_exit;
 
     ret = nf_register_net_hook(&init_net, &strider_nf_ops);
     if (ret < 0) {
@@ -99,11 +96,12 @@ static int __init strider_module_init(void) {
         goto out_matching_exit;
     }
 
+    pr_info("Module loaded\n");
     return 0;
 
 out_matching_exit:
     strider_matching_exit();
-out_nl_exit:
+out_control_exit:
     strider_control_exit();
 out:
     return ret;
@@ -113,6 +111,7 @@ static void __exit strider_module_exit(void) {
     nf_unregister_net_hook(&init_net, &strider_nf_ops);
     strider_matching_exit();
     strider_control_exit();
+    pr_info("Module unloaded\n");
 }
 
 module_init(strider_module_init);

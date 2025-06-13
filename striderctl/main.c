@@ -184,12 +184,8 @@ int main(int argc, char *argv[]) {
 
     if (argc > 0) {
         argv0_alloc_copy = strdup(argv[0]);
-        if (!argv0_alloc_copy) {
-            fprintf(stderr, "%s: failed to allocate memory for program name: %s\n", program_name, strerror(errno));
-            ret = EXIT_FAILURE;
-            goto out;
-        }
-        program_name = basename(argv0_alloc_copy);
+        if (argv0_alloc_copy)
+            program_name = basename(argv0_alloc_copy);
     }
 
     while (true) {
