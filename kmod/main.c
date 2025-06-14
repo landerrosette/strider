@@ -9,6 +9,7 @@
 #include <linux/skbuff.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
+#include <net/ip.h>
 
 #include "control.h"
 #include "matching.h"
@@ -18,6 +19,13 @@ static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const str
 
     struct iphdr *iph = ip_hdr(skb);
     if (!iph) return NF_ACCEPT;
+
+    if (ip_is_fragment(iph)) {
+        // receiving a fragment at this point is unusual
+        pr_warn_ratelimited("Ignoring fragmented packet");
+        return NF_ACCEPT;
+    }
+
     unsigned int ip_hdr_len = iph->ihl * 4;
 
     const char *payload = NULL;
@@ -29,14 +37,14 @@ static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const str
             return NF_ACCEPT;
 
         iph = ip_hdr(skb); // re-fetch IP header because pskb_may_pull() may have reallocated memory
-        // We must calculate the TCP header location manually.
+        // The TCP header location must be calculated manually.
         // The helper tcp_hdr(skb) cannot be used here
         // because skb->transport_header is not guaranteed to be set at the NF_INET_PRE_ROUTING hook.
         struct tcphdr *tcph = (struct tcphdr *) ((const __u8 *) iph + ip_hdr_len);
         unsigned int tcp_hdr_len = tcph->doff * 4;
 
-        // First, ensure the TCP header length field itself is valid.
-        // Second, ensure the combined IP+TCP headers do not exceed the total packet length.
+        // Validate the TCP header length itself,
+        // then ensure the combined IP/TCP headers do not exceed the total packet length.
         // This prevents parsing malformed packets.
         if (tcp_hdr_len < sizeof(struct tcphdr))
             return NF_ACCEPT;
@@ -52,7 +60,6 @@ static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const str
         iph = ip_hdr(skb);
         struct udphdr *udph = (struct udphdr *) ((const __u8 *) iph + ip_hdr_len);
 
-        // The UDP header has a fixed size, so we don't need a minimum length check.
         if (ip_hdr_len + sizeof(struct udphdr) > ntohs(iph->tot_len))
             return NF_ACCEPT;
 
@@ -117,4 +124,5 @@ static void __exit strider_module_exit(void) {
 module_init(strider_module_init);
 module_exit(strider_module_exit);
 
+MODULE_INFO(depends, "nf_conntrack");
 MODULE_LICENSE("Dual MIT/GPL");
