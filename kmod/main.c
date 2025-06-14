@@ -22,7 +22,7 @@ static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const str
 
     if (unlikely(ip_is_fragment(iph))) {
         // receiving a fragment at this point is unusual
-        pr_warn_ratelimited("Ignoring fragmented packet");
+        pr_warn_ratelimited("Ignoring fragmented packet\n");
         return NF_ACCEPT;
     }
 
