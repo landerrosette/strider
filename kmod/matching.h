@@ -1,5 +1,5 @@
-#ifndef STRIDER_KERNEL_MATCHING_H
-#define STRIDER_KERNEL_MATCHING_H
+#ifndef STRIDER_KMOD_MATCHING_H
+#define STRIDER_KMOD_MATCHING_H
 
 
 #include <linux/types.h>
@@ -21,4 +21,4 @@ int strider_matching_del_rule(const char *pattern, u8 action);
 enum strider_verdict strider_matching_get_verdict(const char *payload, size_t len);
 
 
-#endif //STRIDER_KERNEL_MATCHING_H
+#endif //STRIDER_KMOD_MATCHING_H
