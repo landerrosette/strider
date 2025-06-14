@@ -9,9 +9,9 @@
 
 #include "matching.h"
 
-static int strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info);
+static int __cold strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info);
 
-static int strider_nl_del_rule_doit(struct sk_buff *skb, struct genl_info *info);
+static int __cold strider_nl_del_rule_doit(struct sk_buff *skb, struct genl_info *info);
 
 static const struct nla_policy strider_nl_rule_policy[STRIDER_NLA_MAX + 1] = {
     [STRIDER_NLA_PATTERN] = {.type = NLA_NUL_STRING, .len = STRIDER_PATTERN_MAX_LEN},
@@ -42,20 +42,20 @@ static struct genl_family strider_genl_family = {
     .module = THIS_MODULE,
 };
 
-static int strider_nl_parse_rule_attrs(struct genl_info *info, const char **pattern, u8 *action) {
-    if (!info->attrs[STRIDER_NLA_PATTERN] || !info->attrs[STRIDER_NLA_ACTION])
+static int __cold strider_nl_parse_rule_attrs(struct genl_info *info, const char **pattern, u8 *action) {
+    if (unlikely(!info->attrs[STRIDER_NLA_PATTERN] || !info->attrs[STRIDER_NLA_ACTION]))
         return -EINVAL;
 
     *pattern = nla_data(info->attrs[STRIDER_NLA_PATTERN]);
     *action = nla_get_u8(info->attrs[STRIDER_NLA_ACTION]);
 
-    if (*action == STRIDER_ACTION_UNSPEC)
+    if (unlikely(*action == STRIDER_ACTION_UNSPEC))
         return -EINVAL;
 
     return 0;
 }
 
-static int strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info) {
+static int __cold strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info) {
     const char *pattern;
     u8 action;
 
@@ -66,7 +66,7 @@ static int strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info)
     return strider_matching_add_rule(pattern, action);
 }
 
-static int strider_nl_del_rule_doit(struct sk_buff *skb, struct genl_info *info) {
+static int __cold strider_nl_del_rule_doit(struct sk_buff *skb, struct genl_info *info) {
     const char *pattern;
     u8 action;
 
@@ -77,13 +77,13 @@ static int strider_nl_del_rule_doit(struct sk_buff *skb, struct genl_info *info)
     return strider_matching_del_rule(pattern, action);
 }
 
-int strider_control_init(void) {
+int __init strider_control_init(void) {
     int ret = genl_register_family(&strider_genl_family);
     if (ret < 0)
         pr_err("Failed to register generic netlink family: %d\n", ret);
     return ret;
 }
 
-void strider_control_exit(void) {
+void __init strider_control_exit(void) {
     genl_unregister_family(&strider_genl_family);
 }

@@ -15,12 +15,12 @@
 #include "matching.h"
 
 static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
-    if (!skb) return NF_ACCEPT;
+    if (unlikely(!skb)) return NF_ACCEPT;
 
     struct iphdr *iph = ip_hdr(skb);
-    if (!iph) return NF_ACCEPT;
+    if (unlikely(!iph)) return NF_ACCEPT;
 
-    if (ip_is_fragment(iph)) {
+    if (unlikely(ip_is_fragment(iph))) {
         // receiving a fragment at this point is unusual
         pr_warn_ratelimited("Ignoring fragmented packet");
         return NF_ACCEPT;
@@ -81,7 +81,7 @@ static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const str
     return NF_ACCEPT;
 }
 
-static struct nf_hook_ops strider_nf_ops = {
+static struct nf_hook_ops strider_nf_ops __read_mostly = {
     .hook = strider_nf_hookfn,
     .pf = NFPROTO_IPV4,
     .hooknum = NF_INET_PRE_ROUTING,

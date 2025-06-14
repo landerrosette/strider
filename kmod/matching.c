@@ -2,6 +2,7 @@
 
 #include "matching.h"
 
+#include <linux/cache.h>
 #include <linux/kernel.h>
 #include <linux/limits.h>
 #include <linux/list.h>
@@ -22,12 +23,12 @@ struct strider_rule {
 };
 
 static LIST_HEAD(strider_rules_list);
-static DEFINE_MUTEX(strider_rules_list_lock); // lock to protect write access
+static __cacheline_aligned_in_smp DEFINE_MUTEX(strider_rules_list_lock); // lock to protect write access
 
 // This function acts as a central policy decision point for rule precedence.
 // By encapsulating this logic, it allows for future extensions, such as configurable precedence.
 // A lower return value signifies a higher precedence.
-static inline int get_verdict_precedence(enum strider_verdict verdict) {
+static inline __attribute_const__ int get_verdict_precedence(enum strider_verdict verdict) {
     switch (verdict) {
         case STRIDER_VERDICT_DROP:
             return STRIDER_VERDICT_HIGHEST_PRECEDENCE;
@@ -39,13 +40,13 @@ static inline int get_verdict_precedence(enum strider_verdict verdict) {
     return STRIDER_VERDICT_LOWEST_PRECEDENCE; // should not happen
 }
 
-int strider_matching_init(void) {
+int __init strider_matching_init(void) {
     // The list head and mutex are statically initialized.
     // Nothing to do here for now.
     return 0;
 }
 
-void strider_matching_exit(void) {
+void __init strider_matching_exit(void) {
     mutex_lock(&strider_rules_list_lock);
 
     struct strider_rule *rule, *tmp;
@@ -62,8 +63,8 @@ int strider_matching_add_rule(const char *pattern, u8 action) {
 
     mutex_lock(&strider_rules_list_lock);
 
-    // check if the rule already exists
     struct strider_rule *rule;
+    // check if the rule already exists
     list_for_each_entry(rule, &strider_rules_list, list) {
         if (strcmp(rule->pattern, pattern) == 0 && rule->action == action) {
             ret = -EEXIST;
@@ -76,8 +77,8 @@ int strider_matching_add_rule(const char *pattern, u8 action) {
         ret = -ENOMEM;
         goto out_unlock;
     }
+    strscpy(rule->pattern, pattern, strlen(pattern) + 1);
     rule->action = action;
-    strcpy(rule->pattern, pattern);
 
     list_add(&rule->list, &strider_rules_list);
 
