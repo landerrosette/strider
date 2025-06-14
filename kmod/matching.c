@@ -7,7 +7,6 @@
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
-#include <linux/rcupdate.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <strider/defs.h>
@@ -17,7 +16,6 @@
 
 struct strider_rule {
     struct list_head list;
-    struct rcu_head rcu;
 
     u8 action;
     char pattern[]; // flexible array member
@@ -25,11 +23,6 @@ struct strider_rule {
 
 static LIST_HEAD(strider_rules_list);
 static DEFINE_MUTEX(strider_rules_list_lock); // lock to protect write access
-
-static void strider_rule_free_rcu_callback(struct rcu_head *rcu) {
-    struct strider_rule *rule = container_of(rcu, struct strider_rule, rcu);
-    kfree(rule);
-}
 
 // This function acts as a central policy decision point for rule precedence.
 // By encapsulating this logic, it allows for future extensions, such as configurable precedence.
@@ -58,7 +51,7 @@ void strider_matching_exit(void) {
     struct strider_rule *rule, *tmp;
     list_for_each_entry_safe(rule, tmp, &strider_rules_list, list) {
         list_del(&rule->list);
-        call_rcu(&rule->rcu, strider_rule_free_rcu_callback);
+        kfree(rule);
     }
 
     mutex_unlock(&strider_rules_list_lock);
@@ -86,7 +79,7 @@ int strider_matching_add_rule(const char *pattern, u8 action) {
     rule->action = action;
     strcpy(rule->pattern, pattern);
 
-    list_add_rcu(&rule->list, &strider_rules_list);
+    list_add(&rule->list, &strider_rules_list);
 
     ret = 0;
 
@@ -96,51 +89,52 @@ out_unlock:
 }
 
 int strider_matching_del_rule(const char *pattern, u8 action) {
+    int ret = -ENOENT;
+
     mutex_lock(&strider_rules_list_lock);
 
-    struct strider_rule *rule, *victim = NULL;
-    list_for_each_entry(rule, &strider_rules_list, list) {
+    struct strider_rule *rule, *tmp;
+    list_for_each_entry_safe(rule, tmp, &strider_rules_list, list) {
         if (strcmp(rule->pattern, pattern) == 0 && rule->action == action) {
-            victim = rule;
+            list_del(&rule->list);
+            kfree(rule);
+            ret = 0;
             break;
         }
     }
-    if (victim) list_del_rcu(&victim->list);
 
     mutex_unlock(&strider_rules_list_lock);
 
-    if (victim) call_rcu(&victim->rcu, strider_rule_free_rcu_callback); // schedule the actual memory free
-
-    return victim ? 0 : -ENOENT;
+    return ret;
 }
 
 enum strider_verdict strider_matching_get_verdict(const char *payload, size_t len) {
     enum strider_verdict final_verdict = STRIDER_VERDICT_NOMATCH;
 
-    rcu_read_lock();
-
-    struct strider_rule *rule;
-    list_for_each_entry_rcu(rule, &strider_rules_list, list) {
-        if (strnstr(payload, rule->pattern, len)) {
-            enum strider_verdict current_verdict;
-            switch (rule->action) {
-                case STRIDER_ACTION_DROP:
-                    current_verdict = STRIDER_VERDICT_DROP;
-                    break;
-                case STRIDER_ACTION_ACCEPT:
-                    current_verdict = STRIDER_VERDICT_ACCEPT;
-                    break;
-                default:
-                    continue;
-            }
-            if (get_verdict_precedence(current_verdict) < get_verdict_precedence(final_verdict))
-                final_verdict = current_verdict;
-            if (get_verdict_precedence(final_verdict) == STRIDER_VERDICT_HIGHEST_PRECEDENCE)
-                break; // highest precedence reached, no need to check further
-        }
-    }
-
-    rcu_read_unlock();
+    // rcu_read_lock();
+    //
+    // struct strider_rule *rule;
+    // list_for_each_entry_rcu(rule, &strider_rules_list, list) {
+    //     if (strnstr(payload, rule->pattern, len)) {
+    //         enum strider_verdict current_verdict;
+    //         switch (rule->action) {
+    //             case STRIDER_ACTION_DROP:
+    //                 current_verdict = STRIDER_VERDICT_DROP;
+    //                 break;
+    //             case STRIDER_ACTION_ACCEPT:
+    //                 current_verdict = STRIDER_VERDICT_ACCEPT;
+    //                 break;
+    //             default:
+    //                 continue;
+    //         }
+    //         if (get_verdict_precedence(current_verdict) < get_verdict_precedence(final_verdict))
+    //             final_verdict = current_verdict;
+    //         if (get_verdict_precedence(final_verdict) == STRIDER_VERDICT_HIGHEST_PRECEDENCE)
+    //             break; // highest precedence reached, no need to check further
+    //     }
+    // }
+    //
+    // rcu_read_unlock();
 
     return final_verdict;
 }
