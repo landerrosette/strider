@@ -2,6 +2,7 @@
 #define STRIDER_KMOD_MATCHING_H
 
 
+#include <linux/skbuff.h>
 #include <linux/types.h>
 
 enum strider_verdict {
@@ -18,7 +19,7 @@ int strider_matching_add_rule(const char *pattern, u8 action);
 
 int strider_matching_del_rule(const char *pattern, u8 action);
 
-enum strider_verdict strider_matching_get_verdict(const char *payload, size_t len);
+enum strider_verdict strider_matching_get_verdict(struct sk_buff *skb);
 
 
 #endif //STRIDER_KMOD_MATCHING_H

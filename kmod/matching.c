@@ -3,6 +3,7 @@
 #include "matching.h"
 
 #include <linux/cache.h>
+#include <linux/ip.h>
 #include <linux/kernel.h>
 #include <linux/limits.h>
 #include <linux/list.h>
@@ -10,6 +11,8 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/string.h>
+#include <linux/tcp.h>
+#include <linux/udp.h>
 #include <strider/defs.h>
 
 #define STRIDER_VERDICT_HIGHEST_PRECEDENCE 0
@@ -109,7 +112,65 @@ int strider_matching_del_rule(const char *pattern, u8 action) {
     return ret;
 }
 
-enum strider_verdict strider_matching_get_verdict(const char *payload, size_t len) {
+static int strider_get_l4_payload_coords(struct sk_buff *skb, size_t *offset, size_t *len) {
+    const struct iphdr *iph = ip_hdr(skb);
+    unsigned int ip_hdr_len = iph->ihl * 4;
+
+    if (unlikely(ip_hdr_len < sizeof(struct iphdr)))
+        return -EINVAL;
+
+    if (iph->protocol == IPPROTO_TCP) {
+        // ensure the TCP header is available and contiguous in memory
+        if (unlikely(!pskb_may_pull(skb, ip_hdr_len + sizeof(struct tcphdr))))
+            return -EINVAL;
+
+        iph = ip_hdr(skb); // re-fetch IP header because pskb_may_pull() may have reallocated memory
+        // The TCP header location must be calculated manually.
+        // The helper tcp_hdr(skb) cannot be used here
+        // because skb->transport_header is not guaranteed to be set at the NF_INET_PRE_ROUTING hook.
+        const struct tcphdr *tcph = (const struct tcphdr *) ((const u8 *) iph + ip_hdr_len);
+        unsigned int tcp_hdr_len = tcph->doff * 4;
+
+        // Validate the TCP header length itself,
+        // then ensure the combined IP/TCP headers do not exceed the total packet length.
+        // This prevents parsing malformed packets.
+        if (unlikely(tcp_hdr_len < sizeof(struct tcphdr)))
+            return -EINVAL;
+        if (unlikely(ip_hdr_len + tcp_hdr_len > ntohs(iph->tot_len)))
+            return -EINVAL;
+
+        // If options are present, pull the full header.
+        if (tcp_hdr_len > sizeof(struct tcphdr)) {
+            if (unlikely(!pskb_may_pull(skb, ip_hdr_len + tcp_hdr_len)))
+                return -EINVAL;
+            iph = ip_hdr(skb);
+        }
+
+        *offset = ip_hdr_len + tcp_hdr_len;
+        *len = ntohs(iph->tot_len) - *offset;
+    } else if (iph->protocol == IPPROTO_UDP) {
+        if (unlikely(!pskb_may_pull(skb, ip_hdr_len + sizeof(struct udphdr))))
+            return -EINVAL;
+
+        iph = ip_hdr(skb);
+        const struct udphdr *udph = (const struct udphdr *) ((const u8 *) iph + ip_hdr_len);
+
+        if (unlikely(ntohs(udph->len) < sizeof(struct udphdr)))
+            return -EINVAL;
+
+        *offset = ip_hdr_len + sizeof(struct udphdr);
+        *len = ntohs(udph->len) - sizeof(struct udphdr);
+    } else {
+        return -EPROTONOSUPPORT;
+    }
+
+    if (unlikely(*offset > skb->len || *len > skb->len - *offset))
+        return -EINVAL;
+
+    return 0;
+}
+
+enum strider_verdict strider_matching_get_verdict(struct sk_buff *skb) {
     enum strider_verdict final_verdict = STRIDER_VERDICT_NOMATCH;
 
     // rcu_read_lock();
