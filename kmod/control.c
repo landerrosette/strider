@@ -43,13 +43,13 @@ static struct genl_family strider_genl_family = {
 };
 
 static int __cold strider_nl_parse_rule_attrs(struct genl_info *info, const char **pattern, u8 *action) {
-    if (unlikely(!info->attrs[STRIDER_NLA_PATTERN] || !info->attrs[STRIDER_NLA_ACTION]))
+    if (!info->attrs[STRIDER_NLA_PATTERN] || !info->attrs[STRIDER_NLA_ACTION])
         return -EINVAL;
 
     *pattern = nla_data(info->attrs[STRIDER_NLA_PATTERN]);
     *action = nla_get_u8(info->attrs[STRIDER_NLA_ACTION]);
 
-    if (unlikely(*action == STRIDER_ACTION_UNSPEC))
+    if (*action == STRIDER_ACTION_UNSPEC)
         return -EINVAL;
 
     return 0;
