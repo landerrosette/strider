@@ -141,7 +141,10 @@ static int strider_send_rule_request(struct strider_nl_connection *conn, uint8_t
 
     ret = nl_recvmsgs_default(conn->sock);
     if (ret < 0) {
-        fprintf(stderr, "%s: failed to receive netlink response: %s\n", program_name, nl_geterror(ret));
+        if (ret == nl_syserr2nlerr(errno))
+            fprintf(stderr, "%s: failed to receive netlink response: %s\n", program_name, strerror(errno));
+        else
+            fprintf(stderr, "%s: operation failed: %s\n", program_name, nl_geterror(ret));
         goto out_msg_free;
     }
 
