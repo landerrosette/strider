@@ -4,7 +4,7 @@
 
 int strider_control_init(void);
 
-void strider_control_exit(void);
+void strider_control_cleanup(void);
 
 
 #endif //STRIDER_KMOD_CONTROL_H

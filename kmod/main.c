@@ -62,17 +62,17 @@ static int __init strider_module_init(void) {
     return 0;
 
 out_matching_exit:
-    strider_matching_exit();
+    strider_matching_cleanup();
 out_control_exit:
-    strider_control_exit();
+    strider_control_cleanup();
 out:
     return ret;
 }
 
 static void __exit strider_module_exit(void) {
     nf_unregister_net_hook(&init_net, &strider_nf_ops);
-    strider_matching_exit();
-    strider_control_exit();
+    strider_matching_cleanup();
+    strider_control_cleanup();
     pr_info("Module unloaded\n");
 }
 

@@ -109,7 +109,7 @@ int __init strider_matching_init(void) {
     return 0;
 }
 
-void __exit strider_matching_exit(void) {
+void strider_matching_cleanup(void) {
     mutex_lock(&strider_rules_list_lock);
 
     struct strider_rule *rule, *tmp;

@@ -13,7 +13,7 @@ enum strider_verdict {
 
 int strider_matching_init(void);
 
-void strider_matching_exit(void);
+void strider_matching_cleanup(void);
 
 int strider_matching_add_rule(const char *pattern, u8 action);
 
