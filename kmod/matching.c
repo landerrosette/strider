@@ -51,26 +51,24 @@ static int strider_get_l4_payload_coords(struct sk_buff *skb, size_t *offset, si
         return -EINVAL;
 
     if (iph->protocol == IPPROTO_TCP) {
-        // ensure the TCP header is available and contiguous in memory
         if (unlikely(!pskb_may_pull(skb, ip_hdr_len + sizeof(struct tcphdr))))
             return -EINVAL;
 
-        iph = ip_hdr(skb); // re-fetch IP header because pskb_may_pull() may have reallocated memory
+        iph = ip_hdr(skb);
         // The TCP header location must be calculated manually.
         // The helper tcp_hdr(skb) cannot be used here
         // because skb->transport_header is not guaranteed to be set at the NF_INET_PRE_ROUTING hook.
         const struct tcphdr *tcph = (const struct tcphdr *) ((const u8 *) iph + ip_hdr_len);
         unsigned int tcp_hdr_len = tcph->doff * 4;
 
-        // Validate the TCP header length itself,
-        // then ensure the combined IP/TCP headers do not exceed the total packet length.
-        // This prevents parsing malformed packets.
+        // TCP header length must be at least its minimum fixed size.
         if (unlikely(tcp_hdr_len < sizeof(struct tcphdr)))
             return -EINVAL;
+        // The combined IP and TCP header lengths must not exceed the total length of the IP datagram.
         if (unlikely(ip_hdr_len + tcp_hdr_len > ntohs(iph->tot_len)))
             return -EINVAL;
 
-        // If options are present, pull the full header.
+        // If TCP options are present, pull the full header.
         if (tcp_hdr_len > sizeof(struct tcphdr)) {
             if (unlikely(!pskb_may_pull(skb, ip_hdr_len + tcp_hdr_len)))
                 return -EINVAL;
@@ -86,7 +84,11 @@ static int strider_get_l4_payload_coords(struct sk_buff *skb, size_t *offset, si
         iph = ip_hdr(skb);
         const struct udphdr *udph = (const struct udphdr *) ((const u8 *) iph + ip_hdr_len);
 
+        // UDP length field must be at least the size of the header.
         if (unlikely(ntohs(udph->len) < sizeof(struct udphdr)))
+            return -EINVAL;
+        // The UDP-claimed length must not exceed the available space calculated from the IP header.
+        if (unlikely(ntohs(udph->len) > ntohs(iph->tot_len) - ip_hdr_len))
             return -EINVAL;
 
         *offset = ip_hdr_len + sizeof(struct udphdr);
