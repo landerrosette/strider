@@ -84,6 +84,6 @@ int __init strider_control_init(void) {
     return ret;
 }
 
-void __init strider_control_exit(void) {
+void __exit strider_control_exit(void) {
     genl_unregister_family(&strider_genl_family);
 }
