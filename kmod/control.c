@@ -1,10 +1,11 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include "control.h"
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <net/genetlink.h>
+
+#include "control.h"
+
 #include <strider/protocol.h>
 
 #include "matching.h"
@@ -42,7 +43,7 @@ static struct genl_family strider_genl_family = {
     .module = THIS_MODULE,
 };
 
-static int __cold strider_nl_parse_rule_attrs(struct genl_info *info, const char **pattern, u8 *action) {
+static inline int strider_nl_parse_rule_attrs(struct genl_info *info, const char **pattern, u8 *action) {
     if (!info->attrs[STRIDER_NLA_PATTERN] || !info->attrs[STRIDER_NLA_ACTION])
         return -EINVAL;
 

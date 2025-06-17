@@ -1,18 +1,18 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include "matching.h"
-
 #include <linux/cache.h>
 #include <linux/ip.h>
 #include <linux/kernel.h>
 #include <linux/limits.h>
 #include <linux/list.h>
-#include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
+
+#include "matching.h"
+
 #include <strider/defs.h>
 
 #define STRIDER_VERDICT_HIGHEST_PRECEDENCE 0

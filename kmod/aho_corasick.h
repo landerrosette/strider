@@ -4,6 +4,7 @@
 
 #include <linux/list.h>
 #include <linux/skbuff.h>
+#include <linux/types.h>
 
 struct ac_automaton;
 

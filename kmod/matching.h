@@ -11,7 +11,7 @@ enum strider_verdict {
     STRIDER_VERDICT_NOMATCH,
 };
 
-int strider_matching_init(void);
+int __init strider_matching_init(void);
 
 void strider_matching_cleanup(void);
 
