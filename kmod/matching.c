@@ -20,7 +20,6 @@
 
 struct strider_rule {
     struct list_head list;
-
     u8 action;
     char pattern[]; // flexible array member
 };
