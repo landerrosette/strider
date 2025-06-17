@@ -116,8 +116,8 @@ static int strider_send_rule_request(struct strider_nl_connection *conn, uint8_t
 
     if (!genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, conn->family_id, 0, NLM_F_REQUEST | NLM_F_ACK, cmd,
                      STRIDER_GENL_VERSION)) {
-        fprintf(stderr, "%s: failed to create netlink message header: %s\n", program_name, strerror(errno));
-        ret = -errno;
+        fprintf(stderr, "%s: failed to create netlink message header (genlmsg_put failed)\n", program_name);
+        ret = -ENOMEM;
         goto out_msg_free;
     }
 
