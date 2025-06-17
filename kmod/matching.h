@@ -2,6 +2,7 @@
 #define STRIDER_KMOD_MATCHING_H
 
 
+#include <linux/init.h>
 #include <linux/skbuff.h>
 #include <linux/types.h>
 

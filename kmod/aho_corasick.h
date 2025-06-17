@@ -2,6 +2,7 @@
 #define AHO_CORASICK_H
 
 
+#include <linux/compiler_attributes.h>
 #include <linux/list.h>
 #include <linux/skbuff.h>
 #include <linux/types.h>

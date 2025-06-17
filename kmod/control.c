@@ -1,11 +1,14 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <net/genetlink.h>
-
 #include "control.h"
 
+#include <linux/compiler_attributes.h>
+#include <linux/errno.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/printk.h>
+#include <linux/types.h>
+#include <net/genetlink.h>
 #include <strider/protocol.h>
 
 #include "matching.h"
