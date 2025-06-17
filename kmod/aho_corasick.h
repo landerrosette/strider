@@ -9,7 +9,6 @@ struct ac_automaton;
 
 struct ac_rule {
     struct list_head list;
-
     const char *pattern;
     size_t len;
     void *priv;
