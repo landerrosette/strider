@@ -56,26 +56,30 @@ static struct option long_options[] = {
     {NULL, 0, NULL, 0},
 };
 
+static int get_error_in_response(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg) {
+    *(int *) arg = nlerr->error;
+    return NL_STOP;
+}
+
 static int strider_nl_connect(struct strider_nl_connection *conn) {
     int ret;
 
     conn->sock = nl_socket_alloc();
     if (!conn->sock) {
-        fprintf(stderr, "%s: failed to allocate netlink socket: %s\n", program_name, strerror(errno));
-        ret = -errno;
+        fprintf(stderr, "%s: system resource error\n", program_name);
+        ret = -ENOMEM;
         goto out;
     }
 
     ret = genl_connect(conn->sock);
     if (ret < 0) {
-        fprintf(stderr, "%s: failed to connect to generic netlink: %s\n", program_name, nl_geterror(ret));
+        fprintf(stderr, "%s: kernel communication error: %s\n", program_name, nl_geterror(ret));
         goto out_sock_free;
     }
 
     ret = genl_ctrl_resolve(conn->sock, STRIDER_GENL_FAMILY_NAME);
     if (ret < 0) {
-        fprintf(stderr, "%s: failed to resolve family name '%s': %s\n", program_name, STRIDER_GENL_FAMILY_NAME,
-                nl_geterror(ret));
+        fprintf(stderr, "%s: kernel communication error: %s\n", program_name, nl_geterror(ret));
         goto out_sock_free;
     }
     conn->family_id = ret;
@@ -109,44 +113,69 @@ static int strider_send_rule_request(struct strider_nl_connection *conn, uint8_t
 
     struct nl_msg *msg = nlmsg_alloc();
     if (!msg) {
-        fprintf(stderr, "%s: failed to allocate netlink message: %s\n", program_name, strerror(errno));
-        ret = -errno;
+        fprintf(stderr, "%s: system resource error\n", program_name);
+        ret = -ENOMEM;
         goto out;
     }
 
     if (!genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, conn->family_id, 0, NLM_F_REQUEST | NLM_F_ACK, cmd,
                      STRIDER_GENL_VERSION)) {
-        fprintf(stderr, "%s: failed to create netlink message header (genlmsg_put failed)\n", program_name);
+        fprintf(stderr, "%s: failed to prepare kernel request message\n", program_name);
         ret = -ENOMEM;
         goto out_msg_free;
     }
 
     ret = nla_put_string(msg, STRIDER_NLA_PATTERN, pattern);
     if (ret < 0) {
-        fprintf(stderr, "%s: failed to put pattern attribute: %s\n", program_name, nl_geterror(ret));
+        fprintf(stderr, "%s: failed to prepare kernel request message: %s\n", program_name, nl_geterror(ret));
         goto out_msg_free;
     }
 
     ret = nla_put_u8(msg, STRIDER_NLA_ACTION, action);
     if (ret < 0) {
-        fprintf(stderr, "%s: failed to put action attribute: %s\n", program_name, nl_geterror(ret));
+        fprintf(stderr, "%s: failed to prepare kernel request message: %s\n", program_name, nl_geterror(ret));
         goto out_msg_free;
     }
+
+    struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
+    if (!cb) {
+        fprintf(stderr, "%s: system resource error\n", program_name);
+        ret = -ENOMEM;
+        goto out_msg_free;
+    }
+    int kernel_err = 0;
+    nl_cb_err(cb, NL_CB_CUSTOM, get_error_in_response, &kernel_err);
 
     ret = nl_send_auto(conn->sock, msg);
     if (ret < 0) {
-        fprintf(stderr, "%s: failed to send netlink message: %s\n", program_name, nl_geterror(ret));
+        fprintf(stderr, "%s: kernel communication error: %s\n", program_name, nl_geterror(ret));
         goto out_msg_free;
     }
 
-    ret = nl_recvmsgs_default(conn->sock);
+    ret = nl_recvmsgs(conn->sock, cb);
     if (ret < 0) {
-        fprintf(stderr, "%s: operation failed: %s\n", program_name, nl_geterror(ret));
-        goto out_msg_free;
+        if (kernel_err < 0) {
+            const char *detail;
+            switch (kernel_err) {
+                case -EEXIST:
+                    detail = "Rule exists";
+                    break;
+                case -ENOENT:
+                    detail = "Rule not found";
+                    break;
+                default:
+                    detail = nl_geterror(nl_syserr2nlerr(kernel_err));
+            }
+            fprintf(stderr, "%s: operation failed: %s\n", program_name, detail);
+        } else
+            fprintf(stderr, "%s: kernel communication error: %s\n", program_name, nl_geterror(ret));
+        goto out_cb_put;
     }
 
     ret = 0;
 
+out_cb_put:
+    nl_cb_put(cb);
 out_msg_free:
     nlmsg_free(msg);
 out:
