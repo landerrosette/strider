@@ -68,27 +68,27 @@ static int strider_nl_connect(struct strider_nl_connection *conn) {
     if (!conn->sock) {
         fprintf(stderr, "%s: system resource error\n", program_name);
         ret = -ENOMEM;
-        goto out;
+        goto fail;
     }
 
     ret = genl_connect(conn->sock);
     if (ret < 0) {
         fprintf(stderr, "%s: kernel communication error: %s\n", program_name, nl_geterror(ret));
-        goto out_sock_free;
+        goto fail_sock_free;
     }
 
     ret = genl_ctrl_resolve(conn->sock, STRIDER_GENL_FAMILY_NAME);
     if (ret < 0) {
         fprintf(stderr, "%s: kernel communication error: %s\n", program_name, nl_geterror(ret));
-        goto out_sock_free;
+        goto fail_sock_free;
     }
     conn->family_id = ret;
 
     return 0;
 
-out_sock_free:
+fail_sock_free:
     nl_socket_free(conn->sock);
-out:
+fail:
     return ret;
 }
 
@@ -149,7 +149,7 @@ static int strider_send_rule_request(struct strider_nl_connection *conn, uint8_t
     ret = nl_send_auto(conn->sock, msg);
     if (ret < 0) {
         fprintf(stderr, "%s: kernel communication error: %s\n", program_name, nl_geterror(ret));
-        goto out_msg_free;
+        goto out_cb_put;
     }
 
     ret = nl_recvmsgs(conn->sock, cb);

@@ -48,25 +48,25 @@ static int __init strider_module_init(void) {
     int ret;
 
     ret = strider_control_init();
-    if (ret < 0) goto out;
+    if (ret < 0) goto fail;
 
     ret = strider_matching_init();
-    if (ret < 0) goto out_control_exit;
+    if (ret < 0) goto fail_control_cleanup;
 
     ret = nf_register_net_hook(&init_net, &strider_nf_ops);
     if (ret < 0) {
         pr_err("Failed to register netfilter hook: %d\n", ret);
-        goto out_matching_exit;
+        goto fail_matching_cleanup;
     }
 
     pr_info("Module loaded\n");
     return 0;
 
-out_matching_exit:
+fail_matching_cleanup:
     strider_matching_cleanup();
-out_control_exit:
+fail_control_cleanup:
     strider_control_cleanup();
-out:
+fail:
     return ret;
 }
 
