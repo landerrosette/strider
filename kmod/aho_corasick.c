@@ -46,8 +46,108 @@ static inline void ac_node_free_output(struct ac_node *node) {
     }
 }
 
-struct ac_automaton * __must_check ac_automaton_build(struct list_head *head) {
+struct ac_automaton * __must_check ac_automaton_build(struct list_head *rules_head) {
+    struct ac_automaton *automaton = kmalloc(sizeof(*automaton), GFP_KERNEL);
+    if (!automaton)
+        return ERR_PTR(-ENOMEM);
+    automaton->root = ac_node_create();
+    if (!automaton->root) {
+        kfree(automaton);
+        return ERR_PTR(-ENOMEM);
+    }
 
+    int ret;
+
+    struct ac_rule *rule;
+    list_for_each_entry(rule, rules_head, list) {
+        struct ac_node *node = automaton->root;
+        const u8 *pattern = (const u8 *) rule->pattern;
+        for (size_t i = 0; i < rule->len; ++i) {
+            if (!node->next[pattern[i]]) {
+                node->next[pattern[i]] = ac_node_create();
+                if (!node->next[pattern[i]]) {
+                    ret = -ENOMEM;
+                    goto fail;
+                }
+            }
+            node = node->next[pattern[i]];
+        }
+
+        struct ac_output *output = kmalloc(sizeof(*output), GFP_KERNEL);
+        if (!output) {
+            ret = -ENOMEM;
+            goto fail;
+        }
+        output->len = rule->len;
+        output->priv = rule->priv;
+        list_add_tail(&output->list, &node->outputs);
+    }
+
+    LIST_HEAD(queue);
+    automaton->root->failure = automaton->root;
+    for (int i = 0; i < 256; ++i) {
+        if (automaton->root->next[i]) {
+            struct ac_queue_node *qnode = kmalloc(sizeof(*qnode), GFP_KERNEL);
+            if (!qnode) {
+                ret = -ENOMEM;
+                goto fail;
+            }
+            automaton->root->next[i]->failure = automaton->root;
+            qnode->node = automaton->root->next[i];
+            list_add_tail(&qnode->list, &queue);
+        }
+    }
+
+    while (!list_empty(&queue)) {
+        struct ac_queue_node *qnode = list_first_entry(&queue, struct ac_queue_node, list);
+        list_del(&qnode->list);
+        struct ac_node *node = qnode->node;
+        for (int i = 0; i < 256; ++i) {
+            struct ac_node *child = node->next[i];
+            if (!child)
+                continue;
+
+            const struct ac_node *f = node->failure;
+            while (f != automaton->root && !f->next[i]) {
+                f = f->failure;
+            }
+            if (f->next[i])
+                child->failure = f->next[i];
+            else
+                child->failure = automaton->root;
+
+            if (!list_empty(&child->failure->outputs)) {
+                struct ac_output *out;
+                list_for_each_entry(out, &child->failure->outputs, list) {
+                    struct ac_output *new_out = kmalloc(sizeof(*new_out), GFP_KERNEL);
+                    if (!new_out) {
+                        kfree(qnode);
+                        ret = -ENOMEM;
+                        goto fail;
+                    }
+                    new_out->len = out->len;
+                    new_out->priv = out->priv;
+                    list_add_tail(&new_out->list, &child->outputs);
+                }
+            }
+
+            struct ac_queue_node *child_qnode = kmalloc(sizeof(*child_qnode), GFP_KERNEL);
+            if (!child_qnode) {
+                kfree(qnode);
+                ret = -ENOMEM;
+                goto fail;
+            }
+            child_qnode->node = child;
+            list_add_tail(&child_qnode->list, &queue);
+        }
+        kfree(qnode);
+    }
+
+    return automaton;
+
+fail:
+    ac_automaton_free(automaton);
+    return ERR_PTR(ret);
 }
 
 void ac_automaton_free(struct ac_automaton *automaton) {
@@ -58,7 +158,7 @@ void ac_automaton_free(struct ac_automaton *automaton) {
         return;
     }
 
-    LIST_HEAD(queue); // queue for BFS traversal
+    LIST_HEAD(queue);
 
     struct ac_queue_node *qnode = kmalloc(sizeof(*qnode), GFP_KERNEL);
     if (!qnode) {

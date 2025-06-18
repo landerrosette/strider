@@ -16,7 +16,7 @@ struct ac_rule {
     void *priv;
 };
 
-struct ac_automaton * __must_check ac_automaton_build(struct list_head *head);
+struct ac_automaton * __must_check ac_automaton_build(struct list_head *rules_head);
 
 void ac_automaton_free(struct ac_automaton *automaton);
 
