@@ -46,38 +46,40 @@ static struct genl_family strider_genl_family = {
     .module = THIS_MODULE,
 };
 
-static inline int strider_nl_parse_rule_attrs(struct genl_info *info, const char **pattern, u8 *action) {
+static inline int strider_nl_parse_rule_attrs(struct genl_info *info, const char **pattern,
+                                              enum strider_action *action) {
     if (!info->attrs[STRIDER_NLA_PATTERN] || !info->attrs[STRIDER_NLA_ACTION])
         return -EINVAL;
 
     *pattern = nla_data(info->attrs[STRIDER_NLA_PATTERN]);
-    *action = nla_get_u8(info->attrs[STRIDER_NLA_ACTION]);
-
-    if (*action > STRIDER_ACTION_MAX)
-        return -EINVAL;
+    u8 raw_action = nla_get_u8(info->attrs[STRIDER_NLA_ACTION]);
+    switch (raw_action) {
+        case STRIDER_ACTION_DROP:
+        case STRIDER_ACTION_ACCEPT:
+            *action = raw_action;
+            break;
+        default:
+            return -EINVAL;
+    }
 
     return 0;
 }
 
 static int __cold strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info) {
     const char *pattern;
-    u8 action;
-
+    enum strider_action action;
     int ret = strider_nl_parse_rule_attrs(info, &pattern, &action);
     if (ret < 0)
         return ret;
-
     return strider_matching_add_rule(pattern, action);
 }
 
 static int __cold strider_nl_del_rule_doit(struct sk_buff *skb, struct genl_info *info) {
     const char *pattern;
-    u8 action;
-
+    enum strider_action action;
     int ret = strider_nl_parse_rule_attrs(info, &pattern, &action);
     if (ret < 0)
         return ret;
-
     return strider_matching_del_rule(pattern, action);
 }
 

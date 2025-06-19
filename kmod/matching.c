@@ -13,14 +13,13 @@
 #include <linux/tcp.h>
 #include <linux/types.h>
 #include <linux/udp.h>
-#include <strider/defs.h>
 
 #define STRIDER_VERDICT_HIGHEST_PRECEDENCE 0
 #define STRIDER_VERDICT_LOWEST_PRECEDENCE INT_MAX
 
 struct strider_rule {
     struct list_head list;
-    u8 action;
+    enum strider_action action;
     char pattern[]; // flexible array member
 };
 
@@ -120,7 +119,7 @@ void strider_matching_cleanup(void) {
     mutex_unlock(&strider_rules_list_lock);
 }
 
-int strider_matching_add_rule(const char *pattern, u8 action) {
+int strider_matching_add_rule(const char *pattern, enum strider_action action) {
     int ret;
 
     mutex_lock(&strider_rules_list_lock);
@@ -151,7 +150,7 @@ out_unlock:
     return ret;
 }
 
-int strider_matching_del_rule(const char *pattern, u8 action) {
+int strider_matching_del_rule(const char *pattern, enum strider_action action) {
     int ret = -ENOENT;
 
     mutex_lock(&strider_rules_list_lock);
