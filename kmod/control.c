@@ -13,16 +13,16 @@
 
 #include "matching.h"
 
-static int __cold strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info);
-
-static int __cold strider_nl_del_rule_doit(struct sk_buff *skb, struct genl_info *info);
-
 static const struct nla_policy strider_nl_rule_policy[STRIDER_NLA_MAX + 1] = {
     [STRIDER_NLA_PATTERN] = {.type = NLA_NUL_STRING, .len = STRIDER_PATTERN_MAX_LEN},
     [STRIDER_NLA_ACTION] = {.type = NLA_U8},
 };
 
-static struct genl_ops strider_genl_ops[] = {
+static int __cold strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info);
+
+static int __cold strider_nl_del_rule_doit(struct sk_buff *skb, struct genl_info *info);
+
+static const struct genl_ops strider_genl_ops[] = {
     {
         .cmd = STRIDER_CMD_ADD_RULE,
         .flags = GENL_ADMIN_PERM,
