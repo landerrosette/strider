@@ -53,7 +53,7 @@ static inline int strider_nl_parse_rule_attrs(struct genl_info *info, const char
     *pattern = nla_data(info->attrs[STRIDER_NLA_PATTERN]);
     *action = nla_get_u8(info->attrs[STRIDER_NLA_ACTION]);
 
-    if (*action == STRIDER_ACTION_UNSPEC)
+    if (*action > STRIDER_ACTION_MAX)
         return -EINVAL;
 
     return 0;
