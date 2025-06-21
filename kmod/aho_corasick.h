@@ -7,7 +7,6 @@
 #include <linux/types.h>
 
 struct ac_automaton;
-struct ac_node;
 
 // Represents a single input unit (a pattern) for the automaton.
 struct ac_input {
@@ -16,6 +15,8 @@ struct ac_input {
     size_t len;
     void *priv; // caller's private context pointer, returned verbatim on match
 };
+
+struct ac_node;
 
 struct ac_match_state {
     struct ac_node *current_state;
