@@ -1,11 +1,8 @@
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
 #include "aho_corasick.h"
 
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
-#include <linux/printk.h>
 #include <linux/slab.h>
 #include <linux/stddef.h>
 #include <linux/types.h>
