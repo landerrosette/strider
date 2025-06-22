@@ -29,7 +29,7 @@ static __cacheline_aligned_in_smp DEFINE_MUTEX(strider_rules_list_lock); // lock
 // This function acts as a central policy decision point for rule precedence.
 // By encapsulating this logic, it allows for future extensions, such as configurable precedence.
 // A lower return value signifies a higher precedence.
-static inline __attribute_const__ int get_verdict_precedence(enum strider_verdict verdict) {
+static __attribute_const__ int get_verdict_precedence(enum strider_verdict verdict) {
     switch (verdict) {
         case STRIDER_VERDICT_DROP:
             return STRIDER_VERDICT_HIGHEST_PRECEDENCE;

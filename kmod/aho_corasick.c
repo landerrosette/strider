@@ -36,7 +36,7 @@ static struct ac_node *ac_node_create(void) {
     return node;
 }
 
-static inline void ac_node_free_outputs(struct ac_node *node) {
+static void ac_node_free_outputs(struct ac_node *node) {
     struct ac_output *out, *tmp;
     list_for_each_entry_safe(out, tmp, &node->outputs, list) {
         list_del(&out->list);

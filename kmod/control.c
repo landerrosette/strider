@@ -46,8 +46,8 @@ static struct genl_family strider_genl_family = {
     .module = THIS_MODULE,
 };
 
-static inline int strider_nl_parse_rule_attrs(struct genl_info *info, const char **pattern,
-                                              enum strider_action *action) {
+static int strider_nl_parse_rule_attrs(struct genl_info *info, const char **pattern,
+                                       enum strider_action *action) {
     if (!info->attrs[STRIDER_NLA_PATTERN] || !info->attrs[STRIDER_NLA_ACTION])
         return -EINVAL;
 
