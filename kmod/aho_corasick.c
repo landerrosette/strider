@@ -44,6 +44,23 @@ static void ac_node_free_outputs(struct ac_node *node) {
     }
 }
 
+static void ac_report_matches(struct ac_match_state *state, int (*cb)(void *priv, size_t offset, void *cb_ctx),
+                              void *cb_ctx) {
+    if (!cb) return;
+
+    // Traverse the failure links chain.
+    // The root's failure link points to itself, which gracefully terminates the loop.
+    for (struct ac_node *node = state->current_state; node != node->failure; node = node->failure) {
+        struct ac_output *out;
+        list_for_each_entry(out, &node->outputs, list) {
+            size_t match_offset = state->stream_pos - out->len;
+            if (cb(out->priv, match_offset, cb_ctx) != 0) {
+                // TODO: Implement early exit strategy.
+            }
+        }
+    }
+}
+
 struct ac_automaton * __must_check ac_automaton_build(struct list_head *inputs_head) {
     struct ac_automaton *automaton = kmalloc(sizeof(*automaton), GFP_KERNEL);
     if (!automaton)
@@ -153,23 +170,6 @@ void ac_automaton_free(struct ac_automaton *automaton) {
 void ac_match_state_init(struct ac_automaton *automaton, struct ac_match_state *state) {
     state->current_state = automaton->root;
     state->stream_pos = 0;
-}
-
-static void ac_report_matches(struct ac_match_state *state, int (*cb)(void *priv, size_t offset, void *cb_ctx),
-                              void *cb_ctx) {
-    if (!cb) return;
-
-    // Traverse the failure links chain.
-    // The root's failure link points to itself, which gracefully terminates the loop.
-    for (struct ac_node *node = state->current_state; node != node->failure; node = node->failure) {
-        struct ac_output *out;
-        list_for_each_entry(out, &node->outputs, list) {
-            size_t match_offset = state->stream_pos - out->len;
-            if (cb(out->priv, match_offset, cb_ctx) != 0) {
-                // TODO: Implement early exit strategy.
-            }
-        }
-    }
 }
 
 void ac_automaton_feed(struct ac_match_state *state, const u8 *data, size_t len,
