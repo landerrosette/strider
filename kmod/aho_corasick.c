@@ -155,8 +155,8 @@ void ac_match_state_init(struct ac_automaton *automaton, struct ac_match_state *
     state->stream_pos = 0;
 }
 
-static void __ac_report_matches(struct ac_match_state *state, int (*cb)(void *priv, size_t offset, void *cb_ctx),
-                                void *cb_ctx) {
+static void ac_report_matches(struct ac_match_state *state, int (*cb)(void *priv, size_t offset, void *cb_ctx),
+                              void *cb_ctx) {
     if (!cb) return;
 
     // Traverse the failure links chain.
@@ -187,6 +187,6 @@ void ac_automaton_feed(struct ac_match_state *state, const u8 *data, size_t len,
         ++state->stream_pos;
 
         if (!list_empty(&node->outputs) || node != node->failure)
-            __ac_report_matches(state, cb, cb_ctx);
+            ac_report_matches(state, cb, cb_ctx);
     }
 }
