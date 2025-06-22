@@ -2,17 +2,21 @@
 
 #include <linux/cache.h>
 #include <linux/compiler_attributes.h>
+#include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/ip.h>
 #include <linux/kernel.h>
 #include <linux/limits.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
+#include <linux/rcupdate.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/tcp.h>
 #include <linux/types.h>
 #include <linux/udp.h>
+
+#include "aho_corasick.h"
 
 #define STRIDER_VERDICT_HIGHEST_PRECEDENCE 0
 #define STRIDER_VERDICT_LOWEST_PRECEDENCE INT_MAX
@@ -23,8 +27,14 @@ struct strider_rule {
     char pattern[]; // flexible array member
 };
 
+struct strider_ac_automaton {
+    struct rcu_head rcu;
+    struct ac_automaton *automaton;
+};
+
 static LIST_HEAD(strider_rules_list);
 static __cacheline_aligned_in_smp DEFINE_MUTEX(strider_rules_list_lock); // lock to protect write access
+static struct strider_ac_automaton __rcu *strider_ac_automaton;
 
 // This function acts as a central policy decision point for rule precedence.
 // By encapsulating this logic, it allows for future extensions, such as configurable precedence.
@@ -99,6 +109,63 @@ static int strider_get_l4_payload_coords(struct sk_buff *skb, size_t *offset, si
         return -EINVAL;
 
     return 0;
+}
+
+static void strider_ac_automaton_free_rcu_cb(struct rcu_head *head) {
+    struct strider_ac_automaton *wrapper = container_of(head, struct strider_ac_automaton, rcu);
+    ac_automaton_free(wrapper->automaton);
+    kfree(wrapper);
+}
+
+// MUST be called with strider_rules_list_lock held
+static int strider_ac_automaton_rebuild_locked(void) {
+    int ret;
+
+    struct strider_ac_automaton *new_wrapper = kmalloc(sizeof(*new_wrapper), GFP_KERNEL);
+    if (!new_wrapper) {
+        ret = -ENOMEM;
+        goto out;
+    }
+
+    struct strider_rule *rule;
+    LIST_HEAD(inputs_head);
+    list_for_each_entry(rule, &strider_rules_list, list) {
+        struct ac_input *input = kmalloc(sizeof(*input), GFP_KERNEL);
+        if (!input) {
+            ret = -ENOMEM;
+            goto fail_free;
+        }
+        input->pattern = rule->pattern;
+        input->len = strlen(rule->pattern);
+        input->priv = rule;
+        list_add_tail(&input->list, &inputs_head);
+    }
+
+    struct ac_automaton *new_automaton = ac_automaton_build(&inputs_head);
+    if (IS_ERR(new_automaton)) {
+        ret = PTR_ERR(new_automaton);
+        goto fail_free;
+    }
+    new_wrapper->automaton = new_automaton;
+    struct strider_ac_automaton *old_wrapper = rcu_replace_pointer(strider_ac_automaton, new_wrapper,
+                                                                   lockdep_is_held(&strider_rules_list_lock));
+    if (old_wrapper)
+        call_rcu(&old_wrapper->rcu, strider_ac_automaton_free_rcu_cb);
+
+    ret = 0;
+
+out_free:
+    struct ac_input *input, *tmp;
+    list_for_each_entry_safe(input, tmp, &inputs_head, list) {
+        list_del(&input->list);
+        kfree(input);
+    }
+out:
+    return ret;
+
+fail_free:
+    kfree(new_wrapper);
+    goto out_free;
 }
 
 int __init strider_matching_init(void) {
