@@ -25,7 +25,7 @@ static const struct nf_hook_ops strider_nf_hook_ops = {
 static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
     if (unlikely(!skb)) return NF_ACCEPT;
 
-    struct iphdr *iph = ip_hdr(skb);
+    const struct iphdr *iph = ip_hdr(skb);
     if (unlikely(!iph)) return NF_ACCEPT;
 
     if (unlikely(ip_is_fragment(iph))) {

@@ -11,7 +11,7 @@
 struct ac_output {
     struct list_head list;
     size_t len;
-    void *priv; // caller's private context pointer, returned verbatim on match
+    const void *priv; // caller's private context pointer, returned verbatim on match
 };
 
 struct ac_node {
@@ -41,19 +41,17 @@ static void ac_node_free_outputs(struct ac_node *node) {
     }
 }
 
-static void ac_report_matches(struct ac_match_state *state, int (*cb)(void *priv, size_t offset, void *cb_ctx),
-                              void *cb_ctx) {
+static void ac_report_matches(const struct ac_match_state *state,
+                              int (*cb)(const void *priv, size_t offset, void *cb_ctx), void *cb_ctx) {
     if (!cb) return;
 
     // Traverse the failure links chain.
     // The root's failure link points to itself, which gracefully terminates the loop.
-    for (struct ac_node *node = state->current_state; node != node->failure; node = node->failure) {
-        struct ac_output *out;
+    for (const struct ac_node *node = state->current_state; node != node->failure; node = node->failure) {
+        const struct ac_output *out;
         list_for_each_entry(out, &node->outputs, list) {
             size_t match_offset = state->stream_pos - out->len;
-            if (cb(out->priv, match_offset, cb_ctx) != 0) {
-                // TODO: Implement early exit strategy.
-            }
+            cb(out->priv, match_offset, cb_ctx);
         }
     }
 }
@@ -167,16 +165,16 @@ void ac_automaton_free(struct ac_automaton *automaton) {
     kfree(automaton);
 }
 
-void ac_match_state_init(struct ac_automaton *automaton, struct ac_match_state *state) {
+void ac_match_state_init(const struct ac_automaton *automaton, struct ac_match_state *state) {
     state->current_state = automaton->root;
     state->stream_pos = 0;
 }
 
 void ac_automaton_feed(struct ac_match_state *state, const u8 *data, size_t len,
-                       int (*cb)(void *priv, size_t offset, void *cb_ctx), void *cb_ctx) {
+                       int (*cb)(const void *priv, size_t offset, void *cb_ctx), void *cb_ctx) {
     for (size_t i = 0; i < len; ++i) {
         u8 b = data[i];
-        struct ac_node *node = state->current_state;
+        const struct ac_node *node = state->current_state;
 
         // follow failure links until a transition for the current byte is found or the root is reached
         while (node != node->failure && !node->next[b])

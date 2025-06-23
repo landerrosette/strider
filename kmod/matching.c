@@ -126,7 +126,7 @@ static int strider_ac_automaton_rebuild_locked(void) {
         goto out;
     }
 
-    struct strider_rule *rule;
+    const struct strider_rule *rule;
     LIST_HEAD(inputs_head);
     list_for_each_entry(rule, &strider_rules_list, list) {
         struct ac_input *input = kmalloc(sizeof(*input), GFP_KERNEL);
