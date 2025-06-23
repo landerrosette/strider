@@ -205,7 +205,13 @@ int strider_matching_add_rule(const char *pattern, enum strider_action action) {
     rule->action = action;
     list_add(&rule->list, &strider_rules_list);
 
-    ret = 0;
+    ret = strider_ac_automaton_rebuild_locked();
+    if (ret < 0) {
+        // rollback
+        list_del(&rule->list);
+        kfree(rule);
+        goto out;
+    }
 
 out:
     mutex_unlock(&strider_rules_list_lock);
@@ -221,6 +227,12 @@ int strider_matching_del_rule(const char *pattern, enum strider_action action) {
     list_for_each_entry_safe(rule, tmp, &strider_rules_list, list) {
         if (strcmp(rule->pattern, pattern) == 0 && rule->action == action) {
             list_del(&rule->list);
+            ret = strider_ac_automaton_rebuild_locked();
+            if (ret < 0) {
+                // rollback
+                list_add(&rule->list, &strider_rules_list);
+                goto out;
+            }
             kfree(rule);
             break;
         }
