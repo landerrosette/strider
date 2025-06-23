@@ -180,7 +180,14 @@ void strider_matching_cleanup(void) {
         kfree(rule);
     }
 
+    struct strider_ac_automaton *wrapper = rcu_replace_pointer(strider_ac_automaton, NULL,
+                                                               lockdep_is_held(&strider_rules_list_lock));
+    if (wrapper)
+        call_rcu(&wrapper->rcu, strider_ac_automaton_free_rcu_cb);
+
     mutex_unlock(&strider_rules_list_lock);
+
+    rcu_barrier();
 }
 
 int strider_matching_add_rule(const char *pattern, enum strider_action action) {
