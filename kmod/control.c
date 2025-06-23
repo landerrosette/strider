@@ -68,19 +68,29 @@ static int strider_nl_parse_rule_attrs(struct genl_info *info, const char **patt
 static int __cold strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info *info) {
     const char *pattern;
     enum strider_action action;
+
     int ret = strider_nl_parse_rule_attrs(info, &pattern, &action);
-    if (ret < 0)
-        return ret;
-    return strider_matching_add_rule(pattern, action);
+    if (ret < 0) goto out;
+
+    ret = strider_matching_add_rule(pattern, action);
+    if (ret < 0) goto out;
+
+out:
+    return ret;
 }
 
 static int __cold strider_nl_del_rule_doit(struct sk_buff *skb, struct genl_info *info) {
     const char *pattern;
     enum strider_action action;
+
     int ret = strider_nl_parse_rule_attrs(info, &pattern, &action);
-    if (ret < 0)
-        return ret;
-    return strider_matching_del_rule(pattern, action);
+    if (ret < 0) goto out;
+
+    ret = strider_matching_del_rule(pattern, action);
+    if (ret < 0) goto out;
+
+out:
+    return ret;
 }
 
 int __init strider_control_init(void) {

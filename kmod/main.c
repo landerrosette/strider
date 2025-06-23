@@ -47,13 +47,11 @@ static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const str
 }
 
 static int __init strider_module_init(void) {
-    int ret;
-
-    ret = strider_control_init();
-    if (ret < 0) goto fail;
+    int ret = strider_control_init();
+    if (ret < 0) goto out;
 
     ret = strider_matching_init();
-    if (ret < 0) goto fail_control_cleanup;
+    if (ret < 0) goto fail;
 
     ret = nf_register_net_hook(&init_net, &strider_nf_hook_ops);
     if (ret < 0) {
@@ -62,14 +60,15 @@ static int __init strider_module_init(void) {
     }
 
     pr_info("Module loaded\n");
-    return 0;
+
+out:
+    return ret;
 
 fail_matching_cleanup:
     strider_matching_cleanup();
-fail_control_cleanup:
-    strider_control_cleanup();
 fail:
-    return ret;
+    strider_control_cleanup();
+    goto out;
 }
 
 static void __exit strider_module_exit(void) {

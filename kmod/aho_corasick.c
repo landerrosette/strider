@@ -60,15 +60,17 @@ static void ac_report_matches(struct ac_match_state *state, int (*cb)(void *priv
 
 struct ac_automaton * __must_check ac_automaton_build(struct list_head *inputs_head) {
     struct ac_automaton *automaton = kmalloc(sizeof(*automaton), GFP_KERNEL);
-    if (!automaton)
-        return ERR_PTR(-ENOMEM);
+    int ret = 0;
+    if (!automaton) {
+        ret = -ENOMEM;
+        goto fail;
+    }
     automaton->root = ac_node_create();
     if (!automaton->root) {
         kfree(automaton);
-        return ERR_PTR(-ENOMEM);
+        ret = -ENOMEM;
+        goto fail;
     }
-
-    int ret;
 
     struct ac_input *input;
     list_for_each_entry(input, inputs_head, list) {
@@ -79,7 +81,7 @@ struct ac_automaton * __must_check ac_automaton_build(struct list_head *inputs_h
                 node->next[pattern[i]] = ac_node_create();
                 if (!node->next[pattern[i]]) {
                     ret = -ENOMEM;
-                    goto fail;
+                    goto fail_automaton_free;
                 }
             }
             node = node->next[pattern[i]];
@@ -88,7 +90,7 @@ struct ac_automaton * __must_check ac_automaton_build(struct list_head *inputs_h
         struct ac_output *output = kmalloc(sizeof(*output), GFP_KERNEL);
         if (!output) {
             ret = -ENOMEM;
-            goto fail;
+            goto fail_automaton_free;
         }
         output->len = input->len;
         output->priv = input->priv;
@@ -131,8 +133,9 @@ struct ac_automaton * __must_check ac_automaton_build(struct list_head *inputs_h
 
     return automaton;
 
-fail:
+fail_automaton_free:
     ac_automaton_free(automaton);
+fail:
     return ERR_PTR(ret);
 }
 

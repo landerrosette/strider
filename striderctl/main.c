@@ -62,34 +62,34 @@ static int get_error_in_response(struct sockaddr_nl *nla, struct nlmsgerr *nlerr
 }
 
 static int strider_nl_connect(struct strider_nl_connection *conn) {
-    int ret;
-
     conn->sock = nl_socket_alloc();
+    int ret = 0;
     if (!conn->sock) {
         fprintf(stderr, "%s: system resource error\n", program_name);
         ret = -ENOMEM;
-        goto fail;
+        goto out;
     }
 
     ret = genl_connect(conn->sock);
     if (ret < 0) {
         fprintf(stderr, "%s: kernel communication error: %s\n", program_name, nl_geterror(ret));
-        goto fail_sock_free;
+        goto fail;
     }
 
     ret = genl_ctrl_resolve(conn->sock, STRIDER_GENL_FAMILY_NAME);
     if (ret < 0) {
         fprintf(stderr, "%s: kernel communication error: %s\n", program_name, nl_geterror(ret));
-        goto fail_sock_free;
+        goto fail;
     }
     conn->family_id = ret;
+    ret = 0;
 
-    return 0;
-
-fail_sock_free:
-    nl_socket_free(conn->sock);
-fail:
+out:
     return ret;
+
+fail:
+    nl_socket_free(conn->sock);
+    goto out;
 }
 
 static void strider_nl_disconnect(struct strider_nl_connection *conn) {
@@ -98,9 +98,8 @@ static void strider_nl_disconnect(struct strider_nl_connection *conn) {
 
 static int strider_send_rule_request(struct strider_nl_connection *conn, uint8_t cmd, const char *pattern,
                                      const char *action_str) {
-    int ret;
-
     uint8_t action;
+    int ret = 0;
     if (strcmp(action_str, "drop") == 0) {
         action = STRIDER_ACTION_DROP;
     } else if (strcmp(action_str, "accept") == 0) {
@@ -172,8 +171,6 @@ static int strider_send_rule_request(struct strider_nl_connection *conn, uint8_t
         goto out_cb_put;
     }
 
-    ret = 0;
-
 out_cb_put:
     nl_cb_put(cb);
 out_msg_free:
@@ -209,14 +206,13 @@ static void show_help(FILE *stream) {
 }
 
 int main(int argc, char *argv[]) {
-    int ret;
-
     if (argc > 0) {
         argv0_alloc_copy = strdup(argv[0]);
         if (argv0_alloc_copy)
             program_name = basename(argv0_alloc_copy);
     }
 
+    int ret = EXIT_SUCCESS;
     while (true) {
         int opt_idx = 0;
         int c = getopt_long(argc, argv, ":h", long_options, &opt_idx);
@@ -224,8 +220,7 @@ int main(int argc, char *argv[]) {
         switch (c) {
             case 'h':
                 show_help(stdout);
-                ret = EXIT_SUCCESS;
-                goto out_free;
+                goto out;
             case '?':
                 if (optopt) {
                     fprintf(stderr, "%s: invalid option -- '%c'\n", program_name, optopt);
@@ -234,7 +229,7 @@ int main(int argc, char *argv[]) {
                 }
                 fprintf(stderr, "Try '%s --help' for more information.\n", program_name);
                 ret = EXIT_FAILURE;
-                goto out_free;
+                goto out;
             default:
                 abort(); // Should not happen
         }
@@ -244,13 +239,13 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "%s: missing command\n", program_name);
         fprintf(stderr, "Try '%s --help' for more information.\n", program_name);
         ret = EXIT_FAILURE;
-        goto out_free;
+        goto out;
     }
 
     struct strider_nl_connection conn = {0};
     if (strider_nl_connect(&conn) < 0) {
         ret = EXIT_FAILURE;
-        goto out_free;
+        goto out;
     }
 
     const char *command_name = argv[optind];
@@ -267,7 +262,8 @@ int main(int argc, char *argv[]) {
                 goto out_disconnect;
             }
 
-            ret = commands[i].handler(&conn, remaining_argc, remaining_argv) < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+            if (commands[i].handler(&conn, remaining_argc, remaining_argv) < 0)
+                ret = EXIT_FAILURE;
             goto out_disconnect;
         }
     }
@@ -277,7 +273,7 @@ int main(int argc, char *argv[]) {
 
 out_disconnect:
     strider_nl_disconnect(&conn);
-out_free:
+out:
     free(argv0_alloc_copy);
     return ret;
 }

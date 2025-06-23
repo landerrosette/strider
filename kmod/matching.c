@@ -119,9 +119,8 @@ static void strider_ac_automaton_free_rcu_cb(struct rcu_head *head) {
 
 // MUST be called with strider_rules_list_lock held
 static int strider_ac_automaton_rebuild_locked(void) {
-    int ret;
-
     struct strider_ac_automaton *new_wrapper = kmalloc(sizeof(*new_wrapper), GFP_KERNEL);
+    int ret = 0;
     if (!new_wrapper) {
         ret = -ENOMEM;
         goto out;
@@ -133,7 +132,7 @@ static int strider_ac_automaton_rebuild_locked(void) {
         struct ac_input *input = kmalloc(sizeof(*input), GFP_KERNEL);
         if (!input) {
             ret = -ENOMEM;
-            goto fail_free;
+            goto fail;
         }
         input->pattern = rule->pattern;
         input->len = strlen(rule->pattern);
@@ -144,17 +143,15 @@ static int strider_ac_automaton_rebuild_locked(void) {
     struct ac_automaton *new_automaton = ac_automaton_build(&inputs_head);
     if (IS_ERR(new_automaton)) {
         ret = PTR_ERR(new_automaton);
-        goto fail_free;
+        goto fail;
     }
     new_wrapper->automaton = new_automaton;
     struct strider_ac_automaton *old_wrapper = rcu_replace_pointer(strider_ac_automaton, new_wrapper,
                                                                    lockdep_is_held(&strider_rules_list_lock));
-    if (old_wrapper)
+    if (old_wrapper) // if there was a previous automaton
         call_rcu(&old_wrapper->rcu, strider_ac_automaton_free_rcu_cb);
 
-    ret = 0;
-
-out_free:
+out_cleanup:
     struct ac_input *input, *tmp;
     list_for_each_entry_safe(input, tmp, &inputs_head, list) {
         list_del(&input->list);
@@ -163,14 +160,14 @@ out_free:
 out:
     return ret;
 
-fail_free:
+fail:
     kfree(new_wrapper);
-    goto out_free;
+    goto out_cleanup;
 }
 
 int __init strider_matching_init(void) {
     // The list head and mutex are statically initialized.
-    // Nothing to do here for now.
+    // Nothing to do here.
     return 0;
 }
 
@@ -187,51 +184,49 @@ void strider_matching_cleanup(void) {
 }
 
 int strider_matching_add_rule(const char *pattern, enum strider_action action) {
-    int ret;
-
     mutex_lock(&strider_rules_list_lock);
 
     struct strider_rule *rule;
+    int ret = 0;
     // check if the rule already exists
     list_for_each_entry(rule, &strider_rules_list, list) {
         if (strcmp(rule->pattern, pattern) == 0 && rule->action == action) {
             ret = -EEXIST;
-            goto out_unlock;
+            goto out;
         }
     }
 
     rule = kmalloc(sizeof(*rule) + strlen(pattern) + 1, GFP_KERNEL);
     if (!rule) {
         ret = -ENOMEM;
-        goto out_unlock;
+        goto out;
     }
     strscpy(rule->pattern, pattern, strlen(pattern) + 1);
     rule->action = action;
-
     list_add(&rule->list, &strider_rules_list);
 
     ret = 0;
 
-out_unlock:
+out:
     mutex_unlock(&strider_rules_list_lock);
+
     return ret;
 }
 
 int strider_matching_del_rule(const char *pattern, enum strider_action action) {
-    int ret = -ENOENT;
-
     mutex_lock(&strider_rules_list_lock);
 
     struct strider_rule *rule, *tmp;
+    int ret = -ENOENT;
     list_for_each_entry_safe(rule, tmp, &strider_rules_list, list) {
         if (strcmp(rule->pattern, pattern) == 0 && rule->action == action) {
             list_del(&rule->list);
             kfree(rule);
-            ret = 0;
             break;
         }
     }
 
+out:
     mutex_unlock(&strider_rules_list_lock);
 
     return ret;
