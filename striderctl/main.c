@@ -33,7 +33,7 @@ static int handle_add(struct strider_nl_connection *conn, int argc, char *argv[]
 
 static int handle_del(struct strider_nl_connection *conn, int argc, char *argv[]);
 
-static struct command commands[] = {
+static const struct command commands[] = {
     {
         .name = "add",
         .handler = handle_add,
@@ -51,7 +51,7 @@ static struct command commands[] = {
     {NULL, NULL, 0, NULL, NULL},
 };
 
-static struct option long_options[] = {
+static const struct option long_options[] = {
     {"help", no_argument, NULL, 'h'},
     {NULL, 0, NULL, 0},
 };
