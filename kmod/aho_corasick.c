@@ -41,9 +41,10 @@ static void ac_node_free_outputs(struct ac_node *node) {
     }
 }
 
-static void ac_report_matches(const struct ac_match_state *state,
-                              int (*cb)(const void *priv, size_t offset, void *cb_ctx), void *cb_ctx) {
-    if (!cb) return;
+static int ac_report_matches(const struct ac_match_state *state,
+                             int (*cb)(const void *priv, size_t offset, void *cb_ctx), void *cb_ctx) {
+    int ret = 0;
+    if (!cb) return ret;
 
     // Traverse the failure links chain.
     // The root's failure link points to itself, which gracefully terminates the loop.
@@ -51,9 +52,13 @@ static void ac_report_matches(const struct ac_match_state *state,
         const struct ac_output *out;
         list_for_each_entry(out, &node->outputs, list) {
             size_t match_offset = state->stream_pos - out->len;
-            cb(out->priv, match_offset, cb_ctx);
+            ret = cb(out->priv, match_offset, cb_ctx);
+            if (ret != 0)
+                return ret; // immediately exit and propagate the signal
         }
     }
+
+    return ret;
 }
 
 struct ac_automaton * __must_check ac_automaton_build(struct list_head *inputs_head) {
@@ -170,8 +175,9 @@ void ac_match_state_init(const struct ac_automaton *automaton, struct ac_match_s
     state->stream_pos = 0;
 }
 
-void ac_automaton_feed(struct ac_match_state *state, const u8 *data, size_t len,
-                       int (*cb)(const void *priv, size_t offset, void *cb_ctx), void *cb_ctx) {
+int ac_automaton_feed(struct ac_match_state *state, const u8 *data, size_t len,
+                      int (*cb)(const void *priv, size_t offset, void *cb_ctx), void *cb_ctx) {
+    int ret = 0;
     for (size_t i = 0; i < len; ++i) {
         u8 b = data[i];
         const struct ac_node *node = state->current_state;
@@ -184,7 +190,11 @@ void ac_automaton_feed(struct ac_match_state *state, const u8 *data, size_t len,
         state->current_state = node;
         ++state->stream_pos;
 
-        if (!list_empty(&node->outputs) || node != node->failure)
-            ac_report_matches(state, cb, cb_ctx);
+        if (!list_empty(&node->outputs) || node != node->failure) {
+            ret = ac_report_matches(state, cb, cb_ctx);
+            if (ret != 0)
+                return ret; // stop processing if callback signals stop/abort
+        }
     }
+    return ret;
 }
