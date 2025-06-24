@@ -32,6 +32,10 @@ struct strider_ac_automaton {
     struct ac_automaton *automaton;
 };
 
+struct strider_match_ctx {
+    enum strider_verdict verdict;
+};
+
 static LIST_HEAD(strider_rules_list);
 static __cacheline_aligned_in_smp DEFINE_MUTEX(strider_rules_list_lock); // lock to protect write access
 static struct strider_ac_automaton __rcu *strider_ac_automaton;
@@ -165,6 +169,27 @@ fail:
     goto out_cleanup;
 }
 
+static int strider_match_cb(const void *priv, size_t offset, void *cb_ctx) {
+    const struct strider_rule *rule = priv;
+    enum strider_verdict current_verdict = STRIDER_VERDICT_NOMATCH;
+    switch (rule->action) {
+        case STRIDER_ACTION_DROP:
+            current_verdict = STRIDER_VERDICT_DROP;
+            break;
+        case STRIDER_ACTION_ACCEPT:
+            current_verdict = STRIDER_VERDICT_ACCEPT;
+            break;
+        case STRIDER_ACTION_UNSPEC:
+            break; // should not happen
+    }
+
+    struct strider_match_ctx *ctx = cb_ctx;
+    if (get_verdict_precedence(current_verdict) < get_verdict_precedence(ctx->verdict))
+        ctx->verdict = current_verdict;
+
+    return 0; // continue matching
+}
+
 int __init strider_matching_init(void) {
     // The list head and mutex are statically initialized.
     // Nothing to do here.
@@ -252,32 +277,38 @@ out:
 }
 
 enum strider_verdict strider_matching_get_verdict(struct sk_buff *skb) {
-    enum strider_verdict final_verdict = STRIDER_VERDICT_NOMATCH;
+    rcu_read_lock();
 
-    // rcu_read_lock();
-    //
-    // struct strider_rule *rule;
-    // list_for_each_entry_rcu(rule, &strider_rules_list, list) {
-    //     if (strnstr(payload, rule->pattern, len)) {
-    //         enum strider_verdict current_verdict;
-    //         switch (rule->action) {
-    //             case STRIDER_ACTION_DROP:
-    //                 current_verdict = STRIDER_VERDICT_DROP;
-    //                 break;
-    //             case STRIDER_ACTION_ACCEPT:
-    //                 current_verdict = STRIDER_VERDICT_ACCEPT;
-    //                 break;
-    //             default:
-    //                 continue;
-    //         }
-    //         if (get_verdict_precedence(current_verdict) < get_verdict_precedence(final_verdict))
-    //             final_verdict = current_verdict;
-    //         if (get_verdict_precedence(final_verdict) == STRIDER_VERDICT_HIGHEST_PRECEDENCE)
-    //             break; // highest precedence reached, no need to check further
-    //     }
-    // }
-    //
-    // rcu_read_unlock();
+    struct strider_match_ctx match_ctx = {.verdict = STRIDER_VERDICT_NOMATCH};
+    const struct strider_ac_automaton *wrapper = rcu_dereference(strider_ac_automaton);
+    if (!wrapper)
+        goto out;
+    const struct ac_automaton *automaton = wrapper->automaton;
 
-    return final_verdict;
+    size_t offset, len;
+    if (strider_get_l4_payload_coords(skb, &offset, &len) < 0 || len == 0) {
+        match_ctx.verdict = STRIDER_VERDICT_ACCEPT;
+        goto out;
+    }
+
+    struct skb_seq_state skb_state;
+    skb_prepare_seq_read(skb, offset, offset + len, &skb_state);
+    struct ac_match_state ac_state;
+    ac_match_state_init(automaton, &ac_state);
+
+    const u8 *payload_frag;
+    unsigned int frag_len;
+    while ((frag_len = skb_seq_read(0, &payload_frag, &skb_state)) > 0) {
+        ac_automaton_feed(&ac_state, payload_frag, frag_len, strider_match_cb, &match_ctx);
+        if (get_verdict_precedence(match_ctx.verdict) == STRIDER_VERDICT_HIGHEST_PRECEDENCE)
+            goto out_abort_read; // highest precedence verdict found, no need to check further
+    }
+
+out_abort_read:
+    skb_abort_seq_read(&skb_state);
+
+out:
+    rcu_read_unlock();
+
+    return match_ctx.verdict;
 }
