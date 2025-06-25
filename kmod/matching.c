@@ -38,7 +38,7 @@ struct strider_match_ctx {
 
 static LIST_HEAD(strider_rules_list);
 static __cacheline_aligned_in_smp DEFINE_MUTEX(strider_rules_list_lock); // lock to protect write access
-static struct strider_ac_automaton __rcu *strider_ac_automaton;
+static struct strider_ac_automaton __rcu *strider_ac_automaton __read_mostly;
 
 // This function acts as a central policy decision point for rule precedence.
 // By encapsulating this logic, it allows for future extensions, such as configurable precedence.
