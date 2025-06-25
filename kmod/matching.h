@@ -20,7 +20,7 @@ int strider_matching_add_rule(const char *pattern, enum strider_action action);
 
 int strider_matching_del_rule(const char *pattern, enum strider_action action);
 
-enum strider_verdict strider_matching_get_verdict(struct sk_buff *skb);
+enum strider_verdict strider_matching_get_verdict(const struct sk_buff *skb);
 
 
 #endif //STRIDER_KMOD_MATCHING_H
