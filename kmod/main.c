@@ -43,7 +43,9 @@ static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const str
             return NF_ACCEPT;
     }
 
-    return NF_ACCEPT; // should not reach here
+    // should not reach here
+    WARN_ON_ONCE(1);
+    return NF_ACCEPT;
 }
 
 static int __init strider_module_init(void) {

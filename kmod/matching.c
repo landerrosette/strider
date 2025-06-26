@@ -52,7 +52,9 @@ static __attribute_const__ int get_verdict_precedence(enum strider_verdict verdi
         case STRIDER_VERDICT_NOMATCH:
             return STRIDER_VERDICT_LOWEST_PRECEDENCE;
     }
-    return STRIDER_VERDICT_LOWEST_PRECEDENCE; // should not happen
+    // should not reach here
+    WARN_ON_ONCE(1);
+    return STRIDER_VERDICT_LOWEST_PRECEDENCE;
 }
 
 static int strider_get_l4_payload_coords(const struct sk_buff *skb, size_t *offset, size_t *len) {
@@ -168,7 +170,9 @@ static int strider_match_cb(const void *priv, size_t offset, void *cb_ctx) {
             current_verdict = STRIDER_VERDICT_ACCEPT;
             break;
         case STRIDER_ACTION_UNSPEC:
-            break; // should not happen
+            // should not happen
+            WARN_ON_ONCE(1);
+            break;
     }
 
     struct strider_match_ctx *ctx = cb_ctx;
