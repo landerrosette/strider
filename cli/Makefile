@@ -8,7 +8,11 @@ CFLAGS ?= -Wall -Wextra -g
 CPPFLAGS += -I../include $(shell pkg-config --cflags libnl-genl-3.0)
 LDLIBS := $(shell pkg-config --libs libnl-genl-3.0)
 
-.PHONY: all
+PREFIX ?= /usr/local
+BINDIR := $(PREFIX)/sbin
+
+.PHONY: all clean install
+
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
@@ -17,8 +21,11 @@ $(TARGET): $(OBJS)
 %.o: %.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@ -MMD -MP
 
-.PHONY: clean
 clean:
 	rm -f $(TARGET) $(OBJS) $(DEPS)
+
+install: all
+	install -d ${DESTDIR}$(BINDIR)
+	install -m 755 $(TARGET) ${DESTDIR}$(BINDIR)/
 
 -include $(DEPS)

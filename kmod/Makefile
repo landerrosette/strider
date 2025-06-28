@@ -1,14 +1,13 @@
 KDIR ?= /lib/modules/`uname -r`/build
 
-.PHONY: all
-all:
-	$(MAKE) -C $(KDIR) M=$$PWD modules
+.PHONY: all clean install
 
-.PHONY: clean
+all:
+	$(MAKE) -C $(KDIR) M=$$PWD
+
 clean:
 	$(MAKE) -C $(KDIR) M=$$PWD clean
 
-.PHONY: install
 install: all
-	sudo $(MAKE) -C $(KDIR) M=$$PWD modules_install
-	sudo depmod -a
+	$(MAKE) -C $(KDIR) M=$$PWD modules_install
+	depmod -a
