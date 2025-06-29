@@ -29,33 +29,6 @@ struct command {
     const char *description;
 };
 
-static int handle_add(struct strider_nl_connection *conn, int argc, char *argv[]);
-
-static int handle_del(struct strider_nl_connection *conn, int argc, char *argv[]);
-
-static const struct command commands[] = {
-    {
-        .name = "add",
-        .handler = handle_add,
-        .min_argc = 2,
-        .usage_args = "<pattern> <action>",
-        .description = "Add a new matching rule",
-    },
-    {
-        .name = "del",
-        .handler = handle_del,
-        .min_argc = 2,
-        .usage_args = "<pattern> <action>",
-        .description = "Delete an existing matching rule",
-    },
-    {NULL, NULL, 0, NULL, NULL},
-};
-
-static const struct option long_options[] = {
-    {"help", no_argument, NULL, 'h'},
-    {NULL, 0, NULL, 0},
-};
-
 static int get_error_in_response(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg) {
     *(int *) arg = nlerr->error;
     return NL_STOP;
@@ -189,6 +162,24 @@ static int handle_del(struct strider_nl_connection *conn, int argc, char *argv[]
     return strider_send_rule_request(conn, STRIDER_CMD_DEL_RULE, pattern, action);
 }
 
+static const struct command commands[] = {
+    {
+        .name = "add",
+        .handler = handle_add,
+        .min_argc = 2,
+        .usage_args = "<pattern> <action>",
+        .description = "Add a new matching rule",
+    },
+    {
+        .name = "del",
+        .handler = handle_del,
+        .min_argc = 2,
+        .usage_args = "<pattern> <action>",
+        .description = "Delete an existing matching rule",
+    },
+    {}
+};
+
 static void show_help(FILE *stream) {
     fprintf(stream, "Usage: striderctl [OPTION]... COMMAND [ARG]...\n");
     fprintf(stream, "\n");
@@ -204,6 +195,11 @@ static void show_help(FILE *stream) {
         fprintf(stream, "  %-25s %s\n", command_usage, commands[i].description);
     }
 }
+
+static const struct option long_options[] = {
+    {"help", no_argument, NULL, 'h'},
+    {}
+};
 
 int main(int argc, char *argv[]) {
     if (argc > 0) {
@@ -242,7 +238,7 @@ int main(int argc, char *argv[]) {
         goto out;
     }
 
-    struct strider_nl_connection conn = {0};
+    struct strider_nl_connection conn = {};
     if (strider_nl_connect(&conn) < 0) {
         ret = EXIT_FAILURE;
         goto out;

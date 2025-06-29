@@ -13,15 +13,6 @@
 #include "control.h"
 #include "matching.h"
 
-static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
-
-static const struct nf_hook_ops strider_nf_hook_ops = {
-    .hook = strider_nf_hookfn,
-    .pf = NFPROTO_IPV4,
-    .hooknum = NF_INET_PRE_ROUTING,
-    .priority = NF_IP_PRI_CONNTRACK_DEFRAG + 1, // just after conntrack defragmentation
-};
-
 static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
     if (unlikely(!skb)) return NF_ACCEPT;
 
@@ -47,6 +38,13 @@ static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const str
     WARN_ON_ONCE(1);
     return NF_ACCEPT;
 }
+
+static const struct nf_hook_ops strider_nf_hook_ops = {
+    .hook = strider_nf_hookfn,
+    .pf = NFPROTO_IPV4,
+    .hooknum = NF_INET_PRE_ROUTING,
+    .priority = NF_IP_PRI_CONNTRACK_DEFRAG + 1, // just after conntrack defragmentation
+};
 
 static int __init strider_module_init(void) {
     int ret = strider_control_init();
