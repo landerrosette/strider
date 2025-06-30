@@ -1,3 +1,6 @@
 obj-m := strider.o
 strider-y := main.o control.o matching.o aho_corasick.o
 ccflags-y += -I$(src)/../include
+
+obj-$(CONFIG_STRIDER_AC_TEST) := strider_ac_test.o
+strider_ac_test-y := aho_corasick_test.o aho_corasick.o
