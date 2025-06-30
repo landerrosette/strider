@@ -19,21 +19,6 @@ struct strider_nl_connection {
     int family_id;
 };
 
-struct command {
-    const char *name;
-
-    int (*handler)(struct strider_nl_connection *conn, int argc, char *argv[]);
-
-    int min_argc;
-    const char *usage_args;
-    const char *description;
-};
-
-static int get_error_in_response(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg) {
-    *(int *) arg = nlerr->error;
-    return NL_STOP;
-}
-
 static int strider_nl_connect(struct strider_nl_connection *conn) {
     conn->sock = nl_socket_alloc();
     int ret = 0;
@@ -69,8 +54,13 @@ static void strider_nl_disconnect(struct strider_nl_connection *conn) {
     nl_socket_free(conn->sock);
 }
 
-static int strider_send_rule_request(struct strider_nl_connection *conn, uint8_t cmd, const char *pattern,
-                                     const char *action_str) {
+static int get_error_in_response(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg) {
+    *(int *) arg = nlerr->error;
+    return NL_STOP;
+}
+
+static int send_rule_request(struct strider_nl_connection *conn, uint8_t cmd, const char *pattern,
+                             const char *action_str) {
     uint8_t action;
     int ret = 0;
     if (strcmp(action_str, "drop") == 0) {
@@ -154,13 +144,23 @@ out:
 
 static int handle_add(struct strider_nl_connection *conn, int argc, char *argv[]) {
     const char *pattern = argv[0], *action = argv[1];
-    return strider_send_rule_request(conn, STRIDER_CMD_ADD_RULE, pattern, action);
+    return send_rule_request(conn, STRIDER_CMD_ADD_RULE, pattern, action);
 }
 
 static int handle_del(struct strider_nl_connection *conn, int argc, char *argv[]) {
     const char *pattern = argv[0], *action = argv[1];
-    return strider_send_rule_request(conn, STRIDER_CMD_DEL_RULE, pattern, action);
+    return send_rule_request(conn, STRIDER_CMD_DEL_RULE, pattern, action);
 }
+
+struct command {
+    const char *name;
+
+    int (*handler)(struct strider_nl_connection *conn, int argc, char *argv[]);
+
+    int min_argc;
+    const char *usage_args;
+    const char *description;
+};
 
 static const struct command commands[] = {
     {
