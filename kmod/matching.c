@@ -265,7 +265,9 @@ static int strider_match_cb(const void *priv, size_t offset, void *cb_ctx) {
     if (strider_get_verdict_precedence(current_verdict) < strider_get_verdict_precedence(ctx->verdict))
         ctx->verdict = current_verdict;
 
-    return 0; // continue matching
+    if (strider_get_verdict_precedence(ctx->verdict) == STRIDER_VERDICT_HIGHEST_PRECEDENCE)
+        return 1; // highest precedence verdict found, abort
+    return 0;     // continue matching
 }
 
 enum strider_verdict strider_matching_get_verdict(const struct sk_buff *skb) {
