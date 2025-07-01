@@ -52,6 +52,7 @@ static struct strider_ac_node *strider_ac_node_create(void) {
     return node;
 }
 
+// free all resources associated with a node
 static void strider_ac_node_deinit(struct strider_ac_node *node) {
     struct strider_ac_output *out, *tmp;
     list_for_each_entry_safe(out, tmp, &node->outputs, list) {
@@ -68,52 +69,60 @@ static void strider_ac_node_deinit(struct strider_ac_node *node) {
     }
 }
 
-// build a logical trie using flexible, temporary linked lists for state transitions
-static int strider_ac_build_logical_trie(struct strider_ac_node *root, struct list_head *inputs) {
-    const struct strider_ac_input *input;
-    list_for_each_entry(input, inputs, list) {
-        struct strider_ac_node *node = root;
-        const u8 *pattern = (const u8 *) input->pattern;
-        for (size_t i = 0; i < input->len; ++i) {
-            u8 chr = pattern[i];
-            struct strider_ac_node *next_node = NULL;
-            struct strider_ac_build_transition *bt;
+// get or create a transition for a character during build
+static struct strider_ac_node *strider_ac_node_get_or_create_next(struct strider_ac_node *node, u8 chr) {
+    struct strider_ac_build_transition *bt;
 
-            // find existing transition for the current character
-            list_for_each_entry(bt, &node->build_transitions, list) {
-                if (bt->chr == chr) {
-                    next_node = bt->next;
-                    break;
-                }
-            }
-
-            // create a new transition if it doesn't exist
-            if (!next_node) {
-                bt = kmalloc(sizeof(*bt), GFP_KERNEL);
-                if (!bt)
-                    return -ENOMEM;
-                next_node = strider_ac_node_create();
-                if (!next_node) {
-                    kfree(bt);
-                    return -ENOMEM;
-                }
-                bt->chr = chr;
-                bt->next = next_node;
-                list_add_tail(&bt->list, &node->build_transitions);
-            }
-
-            node = next_node;
-        }
-
-        struct strider_ac_output *output = kmalloc(sizeof(*output), GFP_KERNEL);
-        if (!output)
-            return -ENOMEM;
-        output->len = input->len;
-        output->priv = input->priv;
-        list_add_tail(&output->list, &node->outputs);
+    list_for_each_entry(bt, &node->build_transitions, list) {
+        if (bt->chr == chr)
+            return bt->next;
     }
 
+    bt = kmalloc(sizeof(*bt), GFP_KERNEL);
+    if (!bt)
+        return ERR_PTR(-ENOMEM);
+    bt->next = strider_ac_node_create();
+    if (!bt->next) {
+        kfree(bt);
+        return ERR_PTR(-ENOMEM);
+    }
+    bt->chr = chr;
+    list_add_tail(&bt->list, &node->build_transitions);
+    return bt->next;
+}
+
+static int strider_ac_process_input(struct strider_ac_node *root, const struct strider_ac_input *input) {
+    struct strider_ac_node *node = root;
+
+    const u8 *pattern = (const u8 *) input->pattern;
+    for (size_t i = 0; i < input->len; ++i) {
+        node = strider_ac_node_get_or_create_next(node, pattern[i]);
+        if (IS_ERR(node))
+            return PTR_ERR(node);
+    }
+
+    struct strider_ac_output *output = kmalloc(sizeof(*output), GFP_KERNEL);
+    if (!output)
+        return -ENOMEM;
+    output->len = input->len;
+    output->priv = input->priv;
+    list_add_tail(&output->list, &node->outputs);
+
     return 0;
+}
+
+// build a logical trie using temporary linked-list transitions
+static int strider_ac_build_logical_trie(struct strider_ac_node *root, const struct list_head *inputs) {
+    const struct strider_ac_input *input;
+    int ret = 0;
+    list_for_each_entry(input, inputs, list) {
+        ret = strider_ac_process_input(root, input);
+        if (ret < 0)
+            goto out;
+    }
+
+out:
+    return ret;
 }
 
 static int strider_ac_compare_transitions(const void *a, const void *b) {
@@ -122,7 +131,7 @@ static int strider_ac_compare_transitions(const void *a, const void *b) {
     return ta->chr - tb->chr;
 }
 
-// sort the transitions and convert the temporary linked list into a contiguous array
+// convert the temporary linked-list of transitions into a sorted array
 static int strider_ac_node_compact_transitions(struct strider_ac_node *node) {
     size_t count = 0;
     struct strider_ac_build_transition *bt;
@@ -150,6 +159,7 @@ static int strider_ac_node_compact_transitions(struct strider_ac_node *node) {
     return 0;
 }
 
+// finalize the trie by compacting transitions
 static int strider_ac_finalize_trie(struct strider_ac_node *root) {
     LIST_HEAD(queue);
     int ret = 0;
@@ -178,6 +188,7 @@ fail:
     goto out;
 }
 
+// find the next transition for a character, called on a node with compacted transitions
 static struct strider_ac_node *strider_ac_node_find_next(const struct strider_ac_node *node, u8 chr) {
     size_t left = 0, right = node->num_transitions;
     while (left < right) {
@@ -192,6 +203,7 @@ static struct strider_ac_node *strider_ac_node_find_next(const struct strider_ac
     return NULL;
 }
 
+// find the failure link target for a node, starting from its parent
 static struct strider_ac_node *strider_ac_node_find_failure_target(const struct strider_ac_node *parent, u8 chr) {
     const struct strider_ac_node *node;
     for (node = parent->failure; node != node->failure; node = node->failure) {
@@ -212,7 +224,6 @@ static void strider_ac_build_failure_links(struct strider_ac_node *root) {
         child->failure = root;
         list_add_tail(&child->traversal_list, &queue); // enqueue the child for BFS traversal
     }
-
     while (!list_empty(&queue)) {
         struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, traversal_list);
         list_del(&node->traversal_list); // dequeue
@@ -226,7 +237,7 @@ static void strider_ac_build_failure_links(struct strider_ac_node *root) {
     }
 }
 
-struct strider_ac_automaton * __must_check strider_ac_automaton_build(struct list_head *inputs) {
+struct strider_ac_automaton * __must_check strider_ac_automaton_build(const struct list_head *inputs) {
     struct strider_ac_automaton *automaton = kmalloc(sizeof(*automaton), GFP_KERNEL);
     int ret = 0;
     if (!automaton) {
@@ -283,20 +294,64 @@ void strider_ac_automaton_free(struct strider_ac_automaton *automaton) {
                 list_add_tail(&bt->next->traversal_list, &queue);
         }
 
-        strider_ac_node_deinit(node); // release the current node's resources
+        strider_ac_node_deinit(node);
         kfree(node);
     }
-
-    WARN_ON_ONCE(!list_empty(&queue));
 
     kfree(automaton);
 }
 
-void strider_ac_match_state_init(const struct strider_ac_automaton *automaton, struct strider_ac_match_state *state) {
+void strider_ac_match_state_init(struct strider_ac_match_state *state, const struct strider_ac_automaton *automaton) {
     state->cursor = automaton->root;
+    state->automaton = automaton;
     state->stream_pos = 0;
 }
 
 int strider_ac_automaton_feed(struct strider_ac_match_state *state, const u8 *data, size_t len,
                               int (*cb)(const void *priv, size_t offset, void *cb_ctx), void *cb_ctx) {
+    if (unlikely(!state->automaton))
+        return 0;
+    const struct strider_ac_node *root = state->automaton->root;
+    for (size_t i = 0; i < len; ++i) {
+        // Follow transitions for the current character.
+        // If a direct transition fails, traverse failure links
+        // until a valid transition is found or the root is reached.
+        u8 chr = data[i];
+        const struct strider_ac_node *curr_node = state->cursor;
+        while (true) {
+            const struct strider_ac_node *next = strider_ac_node_find_next(curr_node, chr);
+            if (next) {
+                state->cursor = next;
+                break;
+            }
+            if (curr_node == root) {
+                state->cursor = root;
+                break;
+            }
+            curr_node = curr_node->failure;
+        }
+
+        // Inspect each node in the failure chain starting from the final state, to report all matches.
+        // This is done to ensure that all patterns that end at the current position are reported,
+        // including shorter patterns that are suffixes of longer ones.
+        for (const struct strider_ac_node *out_node = state->cursor;; out_node = out_node->failure) {
+            if (!list_empty(&out_node->outputs)) {
+                const struct strider_ac_output *out;
+                list_for_each_entry(out, &out_node->outputs, list) {
+                    size_t offset = state->stream_pos + i - out->len + 1;
+                    int ret = cb(out->priv, offset, cb_ctx);
+                    if (ret != 0) {
+                        // callback requested to stop
+                        state->stream_pos += i + 1;
+                        return ret;
+                    }
+                }
+            }
+            if (out_node == root)
+                break;
+        }
+    }
+
+    state->stream_pos += len;
+    return 0;
 }
