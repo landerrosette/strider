@@ -81,5 +81,5 @@ static void __exit strider_module_exit(void) {
 module_init(strider_module_init);
 module_exit(strider_module_exit);
 
-MODULE_INFO(depends, "nf_conntrack");
+MODULE_SOFTDEP("pre: nf_conntrack");
 MODULE_LICENSE("Dual MIT/GPL");
