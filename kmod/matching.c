@@ -286,12 +286,14 @@ enum strider_verdict strider_matching_get_verdict(const struct sk_buff *skb) {
     struct skb_seq_state skb_state;
     skb_prepare_seq_read((struct sk_buff *) skb, offset, offset + len, &skb_state);
     struct strider_ac_match_state ac_state;
-    strider_ac_match_state_init(automaton, &ac_state);
+    strider_ac_match_state_init(&ac_state, automaton);
 
     const u8 *payload_frag;
     unsigned int frag_len;
-    while ((frag_len = skb_seq_read(0, &payload_frag, &skb_state)) > 0) {
+    unsigned int consumed = 0;
+    while ((frag_len = skb_seq_read(consumed, &payload_frag, &skb_state)) > 0) {
         strider_ac_automaton_feed(&ac_state, payload_frag, frag_len, strider_match_cb, &match_ctx);
+        consumed += frag_len;
         if (strider_get_verdict_precedence(match_ctx.verdict) == STRIDER_VERDICT_HIGHEST_PRECEDENCE)
             goto out_abort_read; // highest precedence verdict found, no need to check further
     }
