@@ -14,20 +14,20 @@ struct strider_ac_input {
     const void *priv; // caller's private context pointer, returned verbatim on match
 };
 
+struct strider_ac_node;
 struct strider_ac_automaton;
 
-struct strider_ac_node;
-
 struct strider_ac_match_state {
-    const struct strider_ac_node *current_state;
+    const struct strider_ac_node *cursor;
+    const struct strider_ac_automaton *automaton;
     size_t stream_pos; // position in the logical input stream
 };
 
-struct strider_ac_automaton * __must_check strider_ac_automaton_build(struct list_head *inputs);
+struct strider_ac_automaton * __must_check strider_ac_automaton_build(const struct list_head *inputs);
 
 void strider_ac_automaton_free(struct strider_ac_automaton *automaton);
 
-void strider_ac_match_state_init(const struct strider_ac_automaton *automaton, struct strider_ac_match_state *state);
+void strider_ac_match_state_init(struct strider_ac_match_state *state, const struct strider_ac_automaton *automaton);
 
 /**
  * ac_automaton_feed

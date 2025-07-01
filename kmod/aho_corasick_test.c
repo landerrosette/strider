@@ -21,7 +21,7 @@ static void strider_ac_test_simple_match(struct kunit *test) {
     struct strider_ac_match_state state;
     struct strider_ac_test_match_ctx ctx = {.test = test, .found_mask = 0};
 
-    strider_ac_match_state_init(automaton, &state);
+    strider_ac_match_state_init(&state, automaton);
     strider_ac_automaton_feed(&state, "hello world", 11, strider_ac_test_match_cb, &ctx);
 
     KUNIT_EXPECT_TRUE(test, ctx.found_mask & (1U << 0)); // pattern 0 is "hello"
@@ -33,7 +33,7 @@ static void strider_ac_test_multi_match_overlap(struct kunit *test) {
     struct strider_ac_match_state state;
     struct strider_ac_test_match_ctx ctx = {.test = test, .found_mask = 0};
 
-    strider_ac_match_state_init(automaton, &state);
+    strider_ac_match_state_init(&state, automaton);
     strider_ac_automaton_feed(&state, "ushers", 6, strider_ac_test_match_cb, &ctx);
 
     KUNIT_EXPECT_TRUE(test, ctx.found_mask & (1U << 1)); // found "she"
@@ -47,7 +47,7 @@ static void strider_ac_test_failure_transitions(struct kunit *test) {
     struct strider_ac_match_state state;
     struct strider_ac_test_match_ctx ctx = {.test = test, .found_mask = 0};
 
-    strider_ac_match_state_init(automaton, &state);
+    strider_ac_match_state_init(&state, automaton);
     strider_ac_automaton_feed(&state, "ashe", 4, strider_ac_test_match_cb, &ctx);
 
     KUNIT_EXPECT_TRUE(test, ctx.found_mask & (1U << 1)); // found "she"
@@ -60,7 +60,7 @@ static void strider_ac_test_no_match(struct kunit *test) {
     struct strider_ac_match_state state;
     struct strider_ac_test_match_ctx ctx = {.test = test, .found_mask = 0};
 
-    strider_ac_match_state_init(automaton, &state);
+    strider_ac_match_state_init(&state, automaton);
     strider_ac_automaton_feed(&state, "goodbye planet", 14, strider_ac_test_match_cb, &ctx);
 
     KUNIT_EXPECT_EQ(test, ctx.found_mask, 0);
