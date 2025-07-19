@@ -25,7 +25,7 @@ static unsigned int strider_nf_hookfn(void *priv, struct sk_buff *skb, const str
         return NF_ACCEPT;
     }
 
-    enum strider_verdict verdict = strider_matching_get_verdict(skb);
+    enum strider_verdict verdict = strider_matching_match_skb(skb);
     switch (verdict) {
         case STRIDER_VERDICT_DROP:
             return NF_DROP;

@@ -4,23 +4,17 @@
 
 #include <linux/init.h>
 #include <linux/skbuff.h>
-#include <strider/defs.h>
-
-enum strider_verdict {
-    STRIDER_VERDICT_NOMATCH,
-    STRIDER_VERDICT_DROP,
-    STRIDER_VERDICT_ACCEPT,
-};
+#include <linux/types.h>
 
 int __init strider_matching_init(void);
 
 void strider_matching_cleanup(void);
 
-int strider_matching_add_rule(const char *pattern, enum strider_action action);
+int strider_matching_add_pattern(const char *pattern);
 
-int strider_matching_del_rule(const char *pattern, enum strider_action action);
+int strider_matching_del_pattern(const char *pattern);
 
-enum strider_verdict strider_matching_get_verdict(const struct sk_buff *skb);
+bool strider_matching_match_skb(const struct sk_buff *skb);
 
 
 #endif //STRIDER_MATCHING_H

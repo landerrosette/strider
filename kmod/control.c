@@ -44,7 +44,7 @@ static int __cold strider_nl_add_rule_doit(struct sk_buff *skb, struct genl_info
     int ret = strider_nl_parse_rule_attrs(info, &pattern, &action);
     if (ret < 0) goto out;
 
-    ret = strider_matching_add_rule(pattern, action);
+    ret = strider_matching_add_pattern(pattern);
     if (ret < 0) goto out;
 
 out:
@@ -58,7 +58,7 @@ static int __cold strider_nl_del_rule_doit(struct sk_buff *skb, struct genl_info
     int ret = strider_nl_parse_rule_attrs(info, &pattern, &action);
     if (ret < 0) goto out;
 
-    ret = strider_matching_del_rule(pattern, action);
+    ret = strider_matching_del_pattern(pattern);
     if (ret < 0) goto out;
 
 out:

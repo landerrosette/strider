@@ -180,7 +180,7 @@ void strider_matching_cleanup(void) {
     rcu_barrier();
 }
 
-int strider_matching_add_rule(const char *pattern, enum strider_action action) {
+int strider_matching_add_pattern(const char *pattern) {
     mutex_lock(&strider_rules_list_lock);
 
     struct strider_rule *rule;
@@ -216,7 +216,7 @@ out:
     return ret;
 }
 
-int strider_matching_del_rule(const char *pattern, enum strider_action action) {
+int strider_matching_del_pattern(const char *pattern) {
     mutex_lock(&strider_rules_list_lock);
 
     struct strider_rule *rule, *tmp;
@@ -270,7 +270,7 @@ static int strider_match_cb(const void *priv, size_t offset, void *cb_ctx) {
     return 0;     // continue matching
 }
 
-enum strider_verdict strider_matching_get_verdict(const struct sk_buff *skb) {
+bool strider_matching_match_skb(const struct sk_buff *skb) {
     rcu_read_lock();
 
     struct strider_match_ctx match_ctx = {.verdict = STRIDER_VERDICT_NOMATCH};
