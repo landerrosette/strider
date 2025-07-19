@@ -2,16 +2,16 @@
 #define STRIDER_PROTOCOL_H
 
 
-#include "defs.h"
+#define STRIDER_PATTERN_MAX_LEN 256 // maximum length of a pattern in bytes
 
 #define STRIDER_GENL_FAMILY_NAME "strider"
-#define STRIDER_GENL_VERSION 1
+#define STRIDER_GENL_VERSION 2
 
 // commands that can be sent over netlink
 enum {
     STRIDER_CMD_UNSPEC,
-    STRIDER_CMD_ADD_RULE,
-    STRIDER_CMD_DEL_RULE,
+    STRIDER_CMD_ADD_PATTERN,
+    STRIDER_CMD_DEL_PATTERN,
     __STRIDER_CMD_MAX,
 };
 
@@ -21,7 +21,6 @@ enum {
 enum {
     STRIDER_NLA_UNSPEC,
     STRIDER_NLA_PATTERN, // type: NLA_NUL_STRING
-    STRIDER_NLA_ACTION,  // type: NLA_U8
     __STRIDER_NLA_MAX,
 };
 
