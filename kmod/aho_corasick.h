@@ -3,16 +3,7 @@
 
 
 #include <linux/compiler_attributes.h>
-#include <linux/list.h>
 #include <linux/types.h>
-
-// Represents a single input unit (a pattern) for the automaton.
-struct strider_ac_input {
-    struct list_head list;
-    const char *pattern;
-    size_t len;
-    const void *priv; // caller's private context pointer, returned verbatim on match
-};
 
 struct strider_ac_node;
 struct strider_ac_automaton;
@@ -23,7 +14,7 @@ struct strider_ac_match_state {
     size_t stream_pos; // position in the logical input stream
 };
 
-struct strider_ac_automaton * __must_check strider_ac_automaton_build(const struct list_head *inputs);
+struct strider_ac_automaton * __must_check strider_ac_automaton_build(const char * const *patterns, size_t num_patterns);
 
 void strider_ac_automaton_free(struct strider_ac_automaton *automaton);
 
@@ -38,7 +29,7 @@ void strider_ac_match_state_init(struct strider_ac_match_state *state, const str
  *         while positive values signal other non-error conditions for stopping (e.g., a specific match found).
  */
 int strider_ac_automaton_feed(struct strider_ac_match_state *state, const u8 *data, size_t len,
-                              int (*cb)(const void *priv, size_t offset, void *cb_ctx), void *cb_ctx);
+                              int (*cb)(void *cb_ctx), void *cb_ctx);
 
 
 #endif //STRIDER_AHO_CORASICK_H
