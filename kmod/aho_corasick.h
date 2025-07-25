@@ -5,11 +5,11 @@
 #include <linux/compiler_attributes.h>
 #include <linux/types.h>
 
-struct strider_ac_node;
 struct strider_ac_automaton;
 
+struct ac_node;
 struct strider_ac_match_state {
-    const struct strider_ac_node *cursor;
+    const struct ac_node *cursor;
     const struct strider_ac_automaton *automaton;
     size_t stream_pos; // position in the logical input stream
 };
