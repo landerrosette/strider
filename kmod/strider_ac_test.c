@@ -1,4 +1,4 @@
-#include "aho_corasick.h"
+#include "strider_ac.h"
 
 #include <kunit/test.h>
 
