@@ -2,7 +2,8 @@
 #define STRIDER_PROTOCOL_H
 
 
-#define STRIDER_PATTERN_MAX_LEN 256 // maximum length of a pattern in bytes
+#define STRIDER_PATTERN_MAX_LEN 256
+#define STRIDER_SET_NAME_MAX_LEN 32
 
 #define STRIDER_GENL_FAMILY_NAME "strider"
 #define STRIDER_GENL_VERSION 2
