@@ -1,0 +1,9 @@
+#ifndef STRIDER_DEFS_H
+#define STRIDER_DEFS_H
+
+
+#define STRIDER_PATTERN_MAX_LEN 256
+#define STRIDER_SET_NAME_MAX_LEN 32
+
+
+#endif //STRIDER_DEFS_H
