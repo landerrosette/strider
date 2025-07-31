@@ -79,7 +79,7 @@ static int strider_ac_test_init(struct kunit *test) {
 }
 
 static void strider_ac_test_exit(struct kunit *test) {
-    strider_ac_automaton_free(test->priv);
+    strider_ac_automaton_destroy(test->priv);
 }
 
 static struct kunit_case strider_ac_test_cases[] = {

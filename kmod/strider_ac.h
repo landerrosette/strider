@@ -16,7 +16,7 @@ struct strider_ac_match_state {
 
 struct strider_ac_automaton * __must_check strider_ac_automaton_build(const char * const *patterns, size_t num_patterns);
 
-void strider_ac_automaton_free(struct strider_ac_automaton *automaton);
+void strider_ac_automaton_destroy(struct strider_ac_automaton *automaton);
 
 void strider_ac_match_state_init(struct strider_ac_match_state *state, const struct strider_ac_automaton *automaton);
 

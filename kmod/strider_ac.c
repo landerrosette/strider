@@ -37,7 +37,7 @@ struct ac_node {
 
     struct ac_node *failure;
     struct list_head outputs;        // list of ac_output
-    struct list_head traversal_list; // for build/free traversals
+    struct list_head traversal_list;
 };
 
 struct strider_ac_automaton {
@@ -243,24 +243,24 @@ struct strider_ac_automaton * __must_check strider_ac_automaton_build(const char
         size_t len = strlen(pattern);
         ret = ac_trie_add_pattern(automaton->root, pattern, len);
         if (ret < 0)
-            goto fail_automaton_free;
+            goto fail_automaton_destroy;
     }
 
     ret = ac_trie_finalize(automaton->root);
     if (ret < 0)
-        goto fail_automaton_free;
+        goto fail_automaton_destroy;
 
     ac_failure_build_links(automaton->root);
 
     return automaton;
 
-fail_automaton_free:
-    strider_ac_automaton_free(automaton);
+fail_automaton_destroy:
+    strider_ac_automaton_destroy(automaton);
 fail:
     return ERR_PTR(ret);
 }
 
-void strider_ac_automaton_free(struct strider_ac_automaton *automaton) {
+void strider_ac_automaton_destroy(struct strider_ac_automaton *automaton) {
     if (!automaton)
         return;
     if (!automaton->root) {
