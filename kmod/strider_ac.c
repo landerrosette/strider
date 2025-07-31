@@ -8,6 +8,7 @@
 #include <linux/stddef.h>
 #include <linux/string.h>
 #include <linux/types.h>
+#include <linux/rcupdate.h>
 
 // Represents a finalized, read-only transition.
 struct ac_transition {
@@ -41,6 +42,7 @@ struct ac_node {
 
 struct strider_ac_automaton {
     struct ac_node *root;
+    struct rcu_head rcu;
 };
 
 static struct ac_node *ac_node_create(void) {
@@ -222,7 +224,7 @@ static void ac_failure_build_links(struct ac_node *root) {
 }
 
 struct strider_ac_automaton * __must_check strider_ac_automaton_build(const char * const *patterns, size_t num_patterns) {
-    struct strider_ac_automaton *automaton = kmalloc(sizeof(*automaton), GFP_KERNEL);
+    struct strider_ac_automaton *automaton = kzalloc(sizeof(*automaton), GFP_KERNEL);
     int ret = 0;
     if (!automaton) {
         ret = -ENOMEM;
