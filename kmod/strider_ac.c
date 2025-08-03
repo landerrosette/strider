@@ -223,6 +223,11 @@ static void ac_failure_build_links(struct ac_node *root) {
     }
 }
 
+static void ac_automaton_destroy_rcu_cb(struct rcu_head *head) {
+    struct strider_ac_automaton *automaton = container_of(head, struct strider_ac_automaton, rcu);
+    strider_ac_automaton_destroy(automaton);
+}
+
 struct strider_ac_automaton * __must_check
 strider_ac_automaton_build(const char *const *patterns, size_t num_patterns) {
     struct strider_ac_automaton *automaton = kzalloc(sizeof(*automaton), GFP_KERNEL);
@@ -290,6 +295,11 @@ void strider_ac_automaton_destroy(struct strider_ac_automaton *automaton) {
     }
 
     kfree(automaton);
+}
+
+void strider_ac_automaton_schedule_destroy(struct strider_ac_automaton *automaton) {
+    if (automaton)
+        call_rcu(&automaton->rcu, ac_automaton_destroy_rcu_cb);
 }
 
 void strider_ac_match_state_init(struct strider_ac_match_state *state, const struct strider_ac_automaton *automaton) {

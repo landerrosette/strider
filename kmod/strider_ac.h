@@ -8,20 +8,29 @@
 struct strider_ac_automaton;
 
 struct ac_node;
+
 struct strider_ac_match_state {
     const struct ac_node *cursor;
     const struct strider_ac_automaton *automaton;
     size_t stream_pos; // position in the logical input stream
 };
 
-struct strider_ac_automaton * __must_check strider_ac_automaton_build(const char * const *patterns, size_t num_patterns);
+struct strider_ac_automaton * __must_check strider_ac_automaton_build(const char *const *patterns, size_t num_patterns);
 
+/**
+ * strider_ac_automaton_destroy() - Destroy an automaton synchronously.
+ */
 void strider_ac_automaton_destroy(struct strider_ac_automaton *automaton);
+
+/**
+ * strider_ac_automaton_schedule_destroy() - Schedule the destruction of an automaton via RCU.
+ */
+void strider_ac_automaton_schedule_destroy(struct strider_ac_automaton *automaton);
 
 void strider_ac_match_state_init(struct strider_ac_match_state *state, const struct strider_ac_automaton *automaton);
 
 /**
- * ac_automaton_feed
+ * strider_ac_automaton_feed()
  *
  * Return: 0 on successful processing of all data.
  *         Otherwise, returns a non-zero value propagated from the callback, stopping further processing.
