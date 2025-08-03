@@ -36,7 +36,7 @@ struct ac_node {
     struct list_head build_transitions;
 
     struct ac_node *failure;
-    struct list_head outputs;        // list of ac_output
+    struct list_head outputs; // list of ac_output
     struct list_head traversal_list;
 };
 
@@ -97,7 +97,7 @@ static int ac_trie_add_pattern(struct ac_node *root, const char *pattern, size_t
     struct ac_node *node = root;
 
     for (size_t i = 0; i < len; ++i) {
-        node = ac_trie_get_or_create_next_node(node, ((const u8 *)pattern)[i]);
+        node = ac_trie_get_or_create_next_node(node, ((const u8 *) pattern)[i]);
         if (IS_ERR(node))
             return PTR_ERR(node);
     }
@@ -223,7 +223,8 @@ static void ac_failure_build_links(struct ac_node *root) {
     }
 }
 
-struct strider_ac_automaton * __must_check strider_ac_automaton_build(const char * const *patterns, size_t num_patterns) {
+struct strider_ac_automaton * __must_check
+strider_ac_automaton_build(const char *const *patterns, size_t num_patterns) {
     struct strider_ac_automaton *automaton = kzalloc(sizeof(*automaton), GFP_KERNEL);
     int ret = 0;
     if (!automaton) {
