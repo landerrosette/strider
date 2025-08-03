@@ -1,5 +1,5 @@
-#ifndef STRIDER_AHO_CORASICK_H
-#define STRIDER_AHO_CORASICK_H
+#ifndef STRIDER_AC_H
+#define STRIDER_AC_H
 
 
 #include <linux/compiler_attributes.h>
@@ -41,4 +41,4 @@ int strider_ac_automaton_feed(struct strider_ac_match_state *state, const u8 *da
                               int (*cb)(void *cb_ctx), void *cb_ctx);
 
 
-#endif //STRIDER_AHO_CORASICK_H
+#endif //STRIDER_AC_H
