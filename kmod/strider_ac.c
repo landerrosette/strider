@@ -3,12 +3,12 @@
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
+#include <linux/rcupdate.h>
 #include <linux/slab.h>
 #include <linux/sort.h>
 #include <linux/stddef.h>
 #include <linux/string.h>
 #include <linux/types.h>
-#include <linux/rcupdate.h>
 
 // Represents a finalized, read-only transition.
 struct ac_transition {

@@ -6,15 +6,14 @@
 // #include <linux/errno.h>
 // #include <linux/kernel.h>
 // #include <linux/limits.h>
+#include <linux/hashtable.h>
+#include <linux/jhash.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/rcupdate.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/types.h>
-#include <linux/hashtable.h>
-#include <linux/jhash.h>
-
 #include <strider/defs.h>
 
 #define STRIDER_SETS_HASH_BITS 4
