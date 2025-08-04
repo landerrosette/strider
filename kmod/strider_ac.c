@@ -225,9 +225,43 @@ static void ac_failure_build_links(struct ac_node *root) {
     }
 }
 
+static void ac_automaton_deinit(struct strider_ac_automaton *automaton) {
+    if (!automaton->root) {
+        kfree(automaton);
+        return;
+    }
+
+    LIST_HEAD(queue);
+    list_add_tail(&automaton->root->traversal_list, &queue);
+    while (!list_empty(&queue)) {
+        struct ac_node *node = list_first_entry(&queue, struct ac_node, traversal_list);
+        list_del(&node->traversal_list); // dequeue the current node
+
+        // enqueue all children for the next cleanup iteration
+        if (node->transitions) {
+            for (size_t i = 0; i < node->num_transitions; ++i)
+                list_add_tail(&node->transitions[i].next->traversal_list, &queue);
+        } else {
+            struct ac_build_transition *bt;
+            list_for_each_entry(bt, &node->build_transitions, list)
+                list_add_tail(&bt->next->traversal_list, &queue);
+        }
+
+        ac_node_deinit(node);
+        kfree(node);
+    }
+}
+
 static void ac_automaton_destroy_work_fn(struct work_struct *work) {
     struct strider_ac_automaton *automaton = container_of(work, struct strider_ac_automaton, destroy_work);
-    strider_ac_automaton_destroy(automaton);
+    ac_automaton_deinit(automaton);
+    kfree(automaton);
+}
+
+static void ac_automaton_destroy_rcu_cb(struct rcu_head *rcu) {
+    struct strider_ac_automaton *automaton = container_of(rcu, struct strider_ac_automaton, rcu);
+    INIT_WORK(&automaton->destroy_work, ac_automaton_destroy_work_fn);
+    schedule_work(&automaton->destroy_work);
 }
 
 struct strider_ac_automaton * __must_check
@@ -269,37 +303,13 @@ fail:
 }
 
 void strider_ac_automaton_destroy(struct strider_ac_automaton *automaton) {
-    if (!automaton)
-        return;
-    if (!automaton->root) {
+    if (automaton) {
+        ac_automaton_deinit(automaton);
         kfree(automaton);
-        return;
     }
-
-    LIST_HEAD(queue);
-    list_add_tail(&automaton->root->traversal_list, &queue);
-    while (!list_empty(&queue)) {
-        struct ac_node *node = list_first_entry(&queue, struct ac_node, traversal_list);
-        list_del(&node->traversal_list); // dequeue the current node
-
-        // enqueue all children for the next cleanup iteration
-        if (node->transitions) {
-            for (size_t i = 0; i < node->num_transitions; ++i)
-                list_add_tail(&node->transitions[i].next->traversal_list, &queue);
-        } else {
-            struct ac_build_transition *bt;
-            list_for_each_entry(bt, &node->build_transitions, list)
-                list_add_tail(&bt->next->traversal_list, &queue);
-        }
-
-        ac_node_deinit(node);
-        kfree(node);
-    }
-
-    kfree(automaton);
 }
 
-void strider_ac_automaton_schedule_destroy(struct strider_ac_automaton *automaton) {
+void strider_ac_automaton_destroy_rcu(struct strider_ac_automaton *automaton) {
     if (automaton)
         call_rcu(&automaton->rcu, ac_automaton_destroy_rcu_cb);
 }
