@@ -23,9 +23,9 @@ struct strider_ac_automaton * __must_check strider_ac_automaton_build(const char
 void strider_ac_automaton_destroy(struct strider_ac_automaton *automaton);
 
 /**
- * strider_ac_automaton_schedule_destroy() - Schedule the destruction of an automaton via RCU.
+ * strider_ac_automaton_destroy_rcu() - Schedule the destruction of an automaton via RCU.
  */
-void strider_ac_automaton_schedule_destroy(struct strider_ac_automaton *automaton);
+void strider_ac_automaton_destroy_rcu(struct strider_ac_automaton *automaton);
 
 void strider_ac_match_state_init(struct strider_ac_match_state *state, const struct strider_ac_automaton *automaton);
 
