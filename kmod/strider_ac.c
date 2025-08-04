@@ -9,6 +9,7 @@
 #include <linux/stddef.h>
 #include <linux/string.h>
 #include <linux/types.h>
+#include <linux/workqueue.h>
 
 // Represents a finalized, read-only transition.
 struct ac_transition {
@@ -43,6 +44,7 @@ struct ac_node {
 struct strider_ac_automaton {
     struct ac_node *root;
     struct rcu_head rcu;
+    struct work_struct destroy_work;
 };
 
 static struct ac_node *ac_node_create(void) {
@@ -223,8 +225,8 @@ static void ac_failure_build_links(struct ac_node *root) {
     }
 }
 
-static void ac_automaton_destroy_rcu_cb(struct rcu_head *head) {
-    struct strider_ac_automaton *automaton = container_of(head, struct strider_ac_automaton, rcu);
+static void ac_automaton_destroy_work_fn(struct work_struct *work) {
+    struct strider_ac_automaton *automaton = container_of(work, struct strider_ac_automaton, destroy_work);
     strider_ac_automaton_destroy(automaton);
 }
 
