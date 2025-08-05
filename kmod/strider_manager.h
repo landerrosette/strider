@@ -4,9 +4,9 @@
 
 #include <linux/init.h>
 
-#include "strider_ac.h"
-
 struct strider_set;
+
+struct strider_ac_automaton;
 
 int __init strider_manager_init(void);
 
