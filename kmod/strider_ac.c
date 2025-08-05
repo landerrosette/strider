@@ -225,7 +225,7 @@ static void ac_failure_build_links(struct ac_node *root) {
     }
 }
 
-static void ac_automaton_deinit(struct strider_ac_automaton *automaton) {
+static void ac_automaton_do_destroy(struct strider_ac_automaton *automaton) {
     if (!automaton->root) {
         kfree(automaton);
         return;
@@ -250,12 +250,13 @@ static void ac_automaton_deinit(struct strider_ac_automaton *automaton) {
         ac_node_deinit(node);
         kfree(node);
     }
+
+    kfree(automaton);
 }
 
 static void ac_automaton_destroy_work_fn(struct work_struct *work) {
     struct strider_ac_automaton *automaton = container_of(work, struct strider_ac_automaton, destroy_work);
-    ac_automaton_deinit(automaton);
-    kfree(automaton);
+    ac_automaton_do_destroy(automaton);
 }
 
 static void ac_automaton_destroy_rcu_cb(struct rcu_head *rcu) {
@@ -303,10 +304,8 @@ fail:
 }
 
 void strider_ac_automaton_destroy(struct strider_ac_automaton *automaton) {
-    if (automaton) {
-        ac_automaton_deinit(automaton);
-        kfree(automaton);
-    }
+    if (automaton)
+        ac_automaton_do_destroy(automaton);
 }
 
 void strider_ac_automaton_destroy_rcu(struct strider_ac_automaton *automaton) {
