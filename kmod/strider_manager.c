@@ -1,9 +1,9 @@
 #include "strider_manager.h"
 
-#include <linux/cache.h>
-// #include <linux/compiler_attributes.h>
-// #include <linux/err.h>
-// #include <linux/errno.h>
+// #include <linux/cache.h>
+#include <linux/compiler.h>
+#include <linux/err.h>
+#include <linux/errno.h>
 // #include <linux/kernel.h>
 // #include <linux/limits.h>
 #include <linux/hashtable.h>
@@ -15,6 +15,9 @@
 #include <linux/string.h>
 #include <linux/types.h>
 #include <strider/defs.h>
+#include <linux/vmalloc.h>
+#include <linux/lockdep.h>
+#include "strider_ac.h"
 
 #define STRIDER_SETS_HASH_BITS 4
 
@@ -26,7 +29,7 @@ struct strider_pattern_entry {
 struct strider_set {
     struct hlist_node node;
     char name[STRIDER_SET_NAME_MAX_LEN];
-    struct list_head patterns;
+    struct list_head patterns; // list of strider_pattern_entry
     struct strider_ac_automaton __rcu *automaton;
     struct mutex lock;
     struct rcu_head rcu;
@@ -35,59 +38,41 @@ struct strider_set {
 static DEFINE_HASHTABLE(strider_sets_ht, STRIDER_SETS_HASH_BITS);
 static DEFINE_MUTEX(strider_sets_ht_lock); // lock to protect write access to the hash table
 
-// static void strider_set_free_rcu_cb(struct rcu_head *head) {
-//     struct strider_set *set = container_of(head, struct strider_set, rcu);
+// MUST be called with strider_sets_ht_lock held
+static struct strider_set *strider_set_lookup_locked(const char *name) {
+    u32 hash_key = jhash(name, strlen(name), 0);
+    struct strider_set *set;
+    hash_for_each_possible(strider_sets_ht, set, node, hash_key) {
+        if (strcmp(set->name, name) == 0)
+            return set;
+    }
+    return NULL;
+}
 
-//     struct strider_ac_automaton *automaton = rcu_dereference_protected(set->automaton, lockdep_is_held(&strider_sets_list_lock));
-// }
+// MUST be called with set->lock held
+static int strider_set_update_automaton_locked(struct strider_set *set) {
+    size_t num_patterns = 0;
+    struct strider_pattern_entry *entry;
+    list_for_each_entry(entry, &set->patterns, list)
+        ++num_patterns;
 
-// // MUST be called with strider_rules_list_lock held
-// static int strider_ac_automaton_rebuild_locked(void) {
-//     struct strider_ac_rcu *new_wrapper = kmalloc(sizeof(*new_wrapper), GFP_KERNEL);
-//     int ret = 0;
-//     if (!new_wrapper) {
-//         ret = -ENOMEM;
-//         goto out;
-//     }
+    const char **patterns_array = vmalloc(num_patterns * sizeof(*patterns_array));
+    if (!patterns_array)
+        return -ENOMEM;
+    size_t i = 0;
+    list_for_each_entry(entry, &set->patterns, list)
+        patterns_array[i++] = entry->pattern;
+    struct strider_ac_automaton *new_automaton = strider_ac_automaton_build(patterns_array, num_patterns);
+    vfree(patterns_array);
+    if (IS_ERR(new_automaton))
+        return PTR_ERR(new_automaton);
 
-//     const struct strider_rule *rule;
-//     LIST_HEAD(inputs_head);
-//     list_for_each_entry(rule, &strider_rules_list, list) {
-//         struct strider_ac_input *input = kmalloc(sizeof(*input), GFP_KERNEL);
-//         if (!input) {
-//             ret = -ENOMEM;
-//             goto fail;
-//         }
-//         input->pattern = rule->pattern;
-//         input->len = strlen(rule->pattern);
-//         input->priv = rule;
-//         list_add_tail(&input->list, &inputs_head);
-//     }
+    struct strider_ac_automaton *old_automaton = rcu_replace_pointer(set->automaton, new_automaton, lockdep_is_held(&set->lock));
+    if (old_automaton)
+        strider_ac_automaton_destroy_rcu(old_automaton);
 
-//     struct strider_ac_automaton *new_automaton = strider_ac_automaton_build(&inputs_head);
-//     if (IS_ERR(new_automaton)) {
-//         ret = PTR_ERR(new_automaton);
-//         goto fail;
-//     }
-//     new_wrapper->automaton = new_automaton;
-//     struct strider_ac_rcu *old_wrapper = rcu_replace_pointer(strider_ac_automaton, new_wrapper,
-//                                                              lockdep_is_held(&strider_rules_list_lock));
-//     if (old_wrapper) // if there was a previous automaton
-//         call_rcu(&old_wrapper->rcu, strider_ac_automaton_free_rcu_cb);
-
-// out_cleanup:
-//     struct strider_ac_input *input, *tmp;
-//     list_for_each_entry_safe(input, tmp, &inputs_head, list) {
-//         list_del(&input->list);
-//         kfree(input);
-//     }
-// out:
-//     return ret;
-
-// fail:
-//     kfree(new_wrapper);
-//     goto out_cleanup;
-// }
+    return 0;
+}
 
 // // This function acts as a central policy decision point for rule precedence.
 // // By encapsulating this logic, it allows for future extensions, such as configurable precedence.
@@ -181,25 +166,23 @@ void strider_manager_cleanup(void) {
 int strider_set_create(const char *name) {
     int ret = 0;
 
-    struct strider_set *set = kzalloc(sizeof(*set), GFP_KERNEL);
-    if (!set) {
+    struct strider_set *new_set = kzalloc(sizeof(*new_set), GFP_KERNEL);
+    if (!new_set) {
         ret = -ENOMEM;
         goto out;
     }
-    strscpy(set->name, name, STRIDER_SET_NAME_MAX_LEN);
-    INIT_LIST_HEAD(&set->patterns);
-    mutex_init(&set->lock);
+    strscpy(new_set->name, name, STRIDER_SET_NAME_MAX_LEN);
+    INIT_LIST_HEAD(&new_set->patterns);
+    mutex_init(&new_set->lock);
 
     mutex_lock(&strider_sets_ht_lock);
 
-    u32 hash_key = jhash(name, strlen(name), 0);
-    hash_for_each_possible(strider_sets_ht, set, node, hash_key) {
-        if (strcmp(set->name, name) == 0) {
-            ret = -EEXIST;
-            goto fail;
-        }
+    struct strider_set *set = strider_set_lookup_locked(name);
+    if (set) {
+        ret = -EEXIST;
+        goto fail;
     }
-    hash_add(strider_sets_ht, &set->node, hash_key);
+    hash_add_rcu(strider_sets_ht, &new_set->node, jhash(name, strlen(name), 0));
 
 out_unlock:
     mutex_unlock(&strider_sets_ht_lock);
@@ -207,12 +190,12 @@ out:
     return ret;
 
 fail:
-    kfree(set);
+    kfree(new_set);
     goto out_unlock;
 }
 
 int strider_set_destroy(const char *name) {
-    mutex_lock(&strider_sets_list_lock);
+    mutex_lock(&strider_sets_ht_lock);
 
     struct strider_set *set, *tmp;
     int ret = -ENOENT;
@@ -231,9 +214,60 @@ int strider_set_destroy(const char *name) {
 //     }
 
 out:
-    mutex_unlock(&strider_sets_list_lock);
+    mutex_unlock(&strider_sets_ht_lock);
 
     return ret;
+}
+
+int strider_set_add_pattern(const char *set_name, const char *pattern) {
+    int ret = 0;
+
+    struct strider_pattern_entry *new_entry = kmalloc(sizeof(*new_entry) + strlen(pattern) + 1, GFP_KERNEL);
+    if (!new_entry) {
+        ret = -ENOMEM;
+        goto out;
+    }
+    strscpy(new_entry->pattern, pattern, strlen(pattern) + 1);
+
+    mutex_lock(&strider_sets_ht_lock);
+
+    struct strider_set *set = strider_set_lookup_locked(set_name);
+    if (!set) {
+        ret = -ENOENT;
+        goto fail_sets_ht_unlock;
+    }
+
+    mutex_lock(&set->lock);
+    mutex_unlock(&strider_sets_ht_lock);
+
+    struct strider_pattern_entry *entry;
+    list_for_each_entry(entry, &set->patterns, list) {
+        if (strcmp(entry->pattern, pattern) == 0) {
+            ret = -EEXIST;
+            goto fail_set_unlock;
+        }
+    }
+    list_add(&new_entry->list, &set->patterns);
+
+    ret = strider_set_update_automaton_locked(set);
+    if (ret < 0) {
+        list_del(&new_entry->list);
+        goto fail_set_unlock;
+    }
+
+    mutex_unlock(&set->lock);
+
+out:
+    return ret;
+
+fail_set_unlock:
+    mutex_unlock(&set->lock);
+    goto fail;
+fail_sets_ht_unlock:
+    mutex_unlock(&strider_sets_ht_lock);
+fail:
+    kfree(new_entry);
+    goto out;
 }
 
 // struct strider_match_ctx {
