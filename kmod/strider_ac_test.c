@@ -1,6 +1,10 @@
 #include "strider_ac.h"
 
 #include <kunit/test.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/types.h>
+#include <linux/err.h>
 
 struct ac_test_match_ctx {
     struct kunit *test;
