@@ -20,7 +20,7 @@ int strider_set_add_pattern(const char *set_name, const char *pattern);
 
 int strider_set_del_pattern(const char *set_name, const char *pattern);
 
-struct strider_set *strider_set_find_rcu(const char *name);
+struct strider_set *strider_set_lookup_rcu(const char *name);
 
 const struct strider_ac_automaton *strider_set_get_automaton(const struct strider_set *set);
 
