@@ -57,7 +57,6 @@ static struct ac_node *ac_node_create(void) {
     return node;
 }
 
-// free all resources associated with a node
 static void ac_node_deinit(struct ac_node *node) {
     struct ac_output *out, *tmp;
     list_for_each_entry_safe(out, tmp, &node->outputs, list) {
