@@ -52,7 +52,7 @@ static struct strider_set *strider_set_lookup_locked(const char *name) {
 // MUST be called with set->lock held
 static int strider_set_rebuild_automaton_locked(struct strider_set *set) {
     size_t num_patterns = 0;
-    struct strider_pattern_entry *entry;
+    const struct strider_pattern_entry *entry;
     list_for_each_entry(entry, &set->patterns, list)
         ++num_patterns;
 
@@ -240,7 +240,7 @@ int strider_set_add_pattern(const char *set_name, const char *pattern) {
     mutex_lock(&set->lock);
     mutex_unlock(&strider_sets_ht_lock);
 
-    struct strider_pattern_entry *entry;
+    const struct strider_pattern_entry *entry;
     list_for_each_entry(entry, &set->patterns, list) {
         if (strcmp(entry->pattern, pattern) == 0) {
             ret = -EEXIST;
