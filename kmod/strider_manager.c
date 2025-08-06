@@ -50,7 +50,7 @@ static struct strider_set *strider_set_lookup_locked(const char *name) {
 }
 
 // MUST be called with set->lock held
-static int strider_set_update_automaton_locked(struct strider_set *set) {
+static int strider_set_rebuild_automaton_locked(struct strider_set *set) {
     size_t num_patterns = 0;
     struct strider_pattern_entry *entry;
     list_for_each_entry(entry, &set->patterns, list)
@@ -62,7 +62,7 @@ static int strider_set_update_automaton_locked(struct strider_set *set) {
     size_t i = 0;
     list_for_each_entry(entry, &set->patterns, list)
         patterns_array[i++] = entry->pattern;
-    struct strider_ac_automaton *new_automaton = strider_ac_automaton_build(patterns_array, num_patterns);
+    struct strider_ac_automaton *new_automaton = strider_ac_automaton_compile(patterns_array, num_patterns);
     vfree(patterns_array);
     if (IS_ERR(new_automaton))
         return PTR_ERR(new_automaton);
@@ -249,7 +249,7 @@ int strider_set_add_pattern(const char *set_name, const char *pattern) {
     }
     list_add(&new_entry->list, &set->patterns);
 
-    ret = strider_set_update_automaton_locked(set);
+    ret = strider_set_rebuild_automaton_locked(set);
     if (ret < 0) {
         list_del(&new_entry->list);
         goto fail_set_unlock;
