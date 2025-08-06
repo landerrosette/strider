@@ -267,7 +267,7 @@ static void ac_automaton_destroy_rcu_cb(struct rcu_head *rcu) {
 }
 
 struct strider_ac_automaton * __must_check
-strider_ac_automaton_build(const char *const *patterns, size_t num_patterns) {
+strider_ac_automaton_compile(const char *const *patterns, size_t num_patterns) {
     struct strider_ac_automaton *automaton = kzalloc(sizeof(*automaton), GFP_KERNEL);
     int ret = 0;
     if (!automaton) {
@@ -320,7 +320,7 @@ void strider_ac_match_state_init(struct strider_ac_match_state *state, const str
     state->stream_pos = 0;
 }
 
-int strider_ac_automaton_feed(struct strider_ac_match_state *state, const u8 *data, size_t len,
+int strider_ac_automaton_scan(struct strider_ac_match_state *state, const u8 *data, size_t len,
                               int (*cb)(void *cb_ctx), void *cb_ctx) {
     if (unlikely(!state->automaton))
         return 0;

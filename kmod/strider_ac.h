@@ -15,7 +15,7 @@ struct strider_ac_match_state {
     size_t stream_pos; // position in the logical input stream
 };
 
-struct strider_ac_automaton * __must_check strider_ac_automaton_build(const char *const *patterns, size_t num_patterns);
+struct strider_ac_automaton * __must_check strider_ac_automaton_compile(const char *const *patterns, size_t num_patterns);
 
 /**
  * strider_ac_automaton_destroy() - Destroy an automaton synchronously.
@@ -30,14 +30,14 @@ void strider_ac_automaton_destroy_rcu(struct strider_ac_automaton *automaton);
 void strider_ac_match_state_init(struct strider_ac_match_state *state, const struct strider_ac_automaton *automaton);
 
 /**
- * strider_ac_automaton_feed()
+ * strider_ac_automaton_scan()
  *
  * Return: 0 on successful processing of all data.
  *         Otherwise, returns a non-zero value propagated from the callback, stopping further processing.
  *         Conventionally, negative values indicate errors (e.g., -ENOMEM),
  *         while positive values signal other non-error conditions for stopping (e.g., a specific match found).
  */
-int strider_ac_automaton_feed(struct strider_ac_match_state *state, const u8 *data, size_t len,
+int strider_ac_automaton_scan(struct strider_ac_match_state *state, const u8 *data, size_t len,
                               int (*cb)(void *cb_ctx), void *cb_ctx);
 
 

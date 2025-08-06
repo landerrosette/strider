@@ -24,7 +24,7 @@ static void strider_ac_test_simple_match(struct kunit *test) {
     struct ac_test_match_ctx ctx = {.test = test, .found = false};
 
     strider_ac_match_state_init(&state, automaton);
-    strider_ac_automaton_feed(&state, "hello world", 11, ac_test_match_cb, &ctx);
+    strider_ac_automaton_scan(&state, "hello world", 11, ac_test_match_cb, &ctx);
 
     KUNIT_EXPECT_TRUE(test, ctx.found);
 }
@@ -36,7 +36,7 @@ static void strider_ac_test_multi_match_overlap(struct kunit *test) {
     struct ac_test_match_ctx ctx = {.test = test, .found = false};
 
     strider_ac_match_state_init(&state, automaton);
-    strider_ac_automaton_feed(&state, "ushers", 6, ac_test_match_cb, &ctx);
+    strider_ac_automaton_scan(&state, "ushers", 6, ac_test_match_cb, &ctx);
 
     KUNIT_EXPECT_TRUE(test, ctx.found);
 }
@@ -48,7 +48,7 @@ static void strider_ac_test_failure_transitions(struct kunit *test) {
     struct ac_test_match_ctx ctx = {.test = test, .found = false};
 
     strider_ac_match_state_init(&state, automaton);
-    strider_ac_automaton_feed(&state, "ashe", 4, ac_test_match_cb, &ctx);
+    strider_ac_automaton_scan(&state, "ashe", 4, ac_test_match_cb, &ctx);
 
     KUNIT_EXPECT_TRUE(test, ctx.found);
 }
@@ -60,7 +60,7 @@ static void strider_ac_test_no_match(struct kunit *test) {
     struct ac_test_match_ctx ctx = {.test = test, .found = false};
 
     strider_ac_match_state_init(&state, automaton);
-    strider_ac_automaton_feed(&state, "goodbye planet", 14, ac_test_match_cb, &ctx);
+    strider_ac_automaton_scan(&state, "goodbye planet", 14, ac_test_match_cb, &ctx);
 
     KUNIT_EXPECT_FALSE(test, ctx.found);
 }
@@ -74,7 +74,7 @@ static int strider_ac_test_init(struct kunit *test) {
     };
     size_t num_patterns = ARRAY_SIZE(patterns);
 
-    struct strider_ac_automaton *automaton = strider_ac_automaton_build(patterns, num_patterns);
+    struct strider_ac_automaton *automaton = strider_ac_automaton_compile(patterns, num_patterns);
     if (IS_ERR(automaton))
         return PTR_ERR(automaton);
 
