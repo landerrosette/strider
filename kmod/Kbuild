@@ -1,5 +1,5 @@
-obj-m := strider.o
-strider-y := strider_manager.o strider_ac.o
+obj-m := strider_core.o
+strider-y := strider_nl.o strider_manager.o strider_ac.o
 ccflags-y += -I$(src)/../include
 
 obj-$(CONFIG_STRIDER_AC_TEST) := strider_ac_test_kunit.o
