@@ -39,7 +39,7 @@ static DEFINE_HASHTABLE(strider_sets_ht, STRIDER_SETS_HASH_BITS);
 static DEFINE_MUTEX(strider_sets_ht_lock); // lock to protect write access to the hash table
 
 // MUST be called with strider_sets_ht_lock held
-static struct strider_set *strider_set_lookup_locked(const char *name) {
+static struct strider_set * __cold strider_set_lookup_locked(const char *name) {
     u32 hash_key = jhash(name, strlen(name), 0);
     struct strider_set *set;
     hash_for_each_possible(strider_sets_ht, set, node, hash_key) {
@@ -50,7 +50,7 @@ static struct strider_set *strider_set_lookup_locked(const char *name) {
 }
 
 // MUST be called with set->lock held
-static int strider_set_rebuild_automaton_locked(struct strider_set *set) {
+static int __cold strider_set_rebuild_automaton_locked(struct strider_set *set) {
     size_t num_patterns = 0;
     const struct strider_pattern_entry *entry;
     list_for_each_entry(entry, &set->patterns, list)
@@ -74,7 +74,7 @@ static int strider_set_rebuild_automaton_locked(struct strider_set *set) {
 }
 
 // MUST be called with set->lock held
-static void strider_set_deinit_locked(struct strider_set *set) {
+static void __cold strider_set_deinit_locked(struct strider_set *set) {
     struct strider_pattern_entry *entry, *tmp;
     list_for_each_entry_safe(entry, tmp, &set->patterns, list) {
         list_del(&entry->list);
@@ -91,7 +91,7 @@ int __init strider_manager_init(void) {
     return 0;
 }
 
-void strider_manager_cleanup(void) {
+void __cold strider_manager_cleanup(void) {
     mutex_lock(&strider_sets_ht_lock);
     struct strider_set *set;
     struct hlist_node *tmp;
@@ -107,7 +107,7 @@ void strider_manager_cleanup(void) {
     rcu_barrier();
 }
 
-int strider_set_create(const char *name) {
+int __cold strider_set_create(const char *name) {
     int ret = 0;
 
     struct strider_set *new_set = kzalloc(sizeof(*new_set), GFP_KERNEL);
@@ -137,7 +137,7 @@ fail:
     goto out_unlock;
 }
 
-int strider_set_destroy(const char *name) {
+int __cold strider_set_destroy(const char *name) {
     mutex_lock(&strider_sets_ht_lock);
     struct strider_set *set = strider_set_lookup_locked(name);
     if (!set) {
@@ -153,7 +153,7 @@ int strider_set_destroy(const char *name) {
     return 0;
 }
 
-int strider_set_add_pattern(const char *set_name, const char *pattern) {
+int __cold strider_set_add_pattern(const char *set_name, const char *pattern) {
     int ret = 0;
 
     struct strider_pattern_entry *new_entry = kmalloc(sizeof(*new_entry) + strlen(pattern) + 1, GFP_KERNEL);
@@ -199,7 +199,7 @@ fail:
     goto out;
 }
 
-int strider_set_del_pattern(const char *set_name, const char *pattern) {
+int __cold strider_set_del_pattern(const char *set_name, const char *pattern) {
     int ret = 0;
 
     mutex_lock(&strider_sets_ht_lock);

@@ -48,7 +48,7 @@ struct strider_ac_automaton {
     struct work_struct destroy_work;
 };
 
-static struct ac_node *ac_node_create(void) {
+static struct ac_node * __cold ac_node_create(void) {
     struct ac_node *node = kzalloc(sizeof(*node), GFP_KERNEL);
     if (!node) return NULL;
     INIT_LIST_HEAD(&node->build_transitions);
@@ -57,7 +57,7 @@ static struct ac_node *ac_node_create(void) {
     return node;
 }
 
-static void ac_node_deinit(struct ac_node *node) {
+static void __cold ac_node_deinit(struct ac_node *node) {
     struct ac_output *out, *tmp;
     list_for_each_entry_safe(out, tmp, &node->outputs, list) {
         list_del(&out->list);
@@ -74,7 +74,7 @@ static void ac_node_deinit(struct ac_node *node) {
 }
 
 // get or create a transition for a character during build
-static struct ac_node *ac_trie_get_or_create_next_node(struct ac_node *node, u8 chr) {
+static struct ac_node * __cold ac_trie_get_or_create_next_node(struct ac_node *node, u8 chr) {
     struct ac_build_transition *bt;
 
     list_for_each_entry(bt, &node->build_transitions, list) {
@@ -95,7 +95,7 @@ static struct ac_node *ac_trie_get_or_create_next_node(struct ac_node *node, u8 
     return bt->next;
 }
 
-static int ac_trie_add_pattern(struct ac_node *root, const char *pattern, size_t len) {
+static int __cold ac_trie_add_pattern(struct ac_node *root, const char *pattern, size_t len) {
     struct ac_node *node = root;
 
     for (size_t i = 0; i < len; ++i) {
@@ -113,14 +113,14 @@ static int ac_trie_add_pattern(struct ac_node *root, const char *pattern, size_t
     return 0;
 }
 
-static int ac_transition_compare(const void *a, const void *b) {
+static int __cold ac_transition_compare(const void *a, const void *b) {
     const struct ac_transition *ta = a;
     const struct ac_transition *tb = b;
     return ta->chr - tb->chr;
 }
 
 // convert the temporary linked-list of transitions into a sorted array
-static int ac_node_finalize_transitions(struct ac_node *node) {
+static int __cold ac_node_finalize_transitions(struct ac_node *node) {
     size_t count = 0;
     struct ac_build_transition *bt;
     list_for_each_entry(bt, &node->build_transitions, list)
@@ -148,7 +148,7 @@ static int ac_node_finalize_transitions(struct ac_node *node) {
 }
 
 // finalize the trie by compacting transitions
-static int ac_trie_finalize(struct ac_node *root) {
+static int __cold ac_trie_finalize(struct ac_node *root) {
     LIST_HEAD(queue);
     int ret = 0;
     list_add_tail(&root->traversal_list, &queue);
@@ -192,7 +192,7 @@ static struct ac_node *ac_node_find_transition(const struct ac_node *node, u8 ch
 }
 
 // find the failure link target for a node, starting from its parent
-static struct ac_node *ac_failure_find_target(const struct ac_node *parent, u8 chr) {
+static struct ac_node * __cold ac_failure_find_target(const struct ac_node *parent, u8 chr) {
     const struct ac_node *node;
     for (node = parent->failure; node != node->failure; node = node->failure) {
         struct ac_node *target = ac_node_find_transition(node, chr);
@@ -203,7 +203,7 @@ static struct ac_node *ac_failure_find_target(const struct ac_node *parent, u8 c
     return ac_node_find_transition(node, chr);
 }
 
-static void ac_failure_build_links(struct ac_node *root) {
+static void __cold ac_failure_build_links(struct ac_node *root) {
     root->failure = root;
     LIST_HEAD(queue);
     // point root's children's failure links to root
@@ -217,15 +217,14 @@ static void ac_failure_build_links(struct ac_node *root) {
         list_del(&node->traversal_list); // dequeue
         for (size_t i = 0; i < node->num_transitions; ++i) {
             struct ac_node *child = node->transitions[i].next;
-            struct ac_node *failure_target =
-                    ac_failure_find_target(node, node->transitions[i].chr);
+            struct ac_node *failure_target = ac_failure_find_target(node, node->transitions[i].chr);
             child->failure = failure_target ? failure_target : root;
             list_add_tail(&child->traversal_list, &queue); // enqueue the child
         }
     }
 }
 
-static void ac_automaton_do_destroy(struct strider_ac_automaton *automaton) {
+static void __cold ac_automaton_do_destroy(struct strider_ac_automaton *automaton) {
     if (!automaton->root) {
         kfree(automaton);
         return;
@@ -254,19 +253,18 @@ static void ac_automaton_do_destroy(struct strider_ac_automaton *automaton) {
     kfree(automaton);
 }
 
-static void ac_automaton_destroy_work_fn(struct work_struct *work) {
+static void __cold ac_automaton_destroy_work_fn(struct work_struct *work) {
     struct strider_ac_automaton *automaton = container_of(work, struct strider_ac_automaton, destroy_work);
     ac_automaton_do_destroy(automaton);
 }
 
-static void ac_automaton_destroy_rcu_cb(struct rcu_head *rcu) {
+static void __cold ac_automaton_destroy_rcu_cb(struct rcu_head *rcu) {
     struct strider_ac_automaton *automaton = container_of(rcu, struct strider_ac_automaton, rcu);
     INIT_WORK(&automaton->destroy_work, ac_automaton_destroy_work_fn);
     schedule_work(&automaton->destroy_work);
 }
 
-struct strider_ac_automaton * __must_check
-strider_ac_automaton_compile(const char *const *patterns, size_t num_patterns) {
+struct strider_ac_automaton * __cold __must_check strider_ac_automaton_compile(const char *const *patterns, size_t num_patterns) {
     struct strider_ac_automaton *automaton = kzalloc(sizeof(*automaton), GFP_KERNEL);
     int ret = 0;
     if (!automaton) {
@@ -303,12 +301,12 @@ fail:
     return ERR_PTR(ret);
 }
 
-void strider_ac_automaton_destroy(struct strider_ac_automaton *automaton) {
+void __cold strider_ac_automaton_destroy(struct strider_ac_automaton *automaton) {
     if (automaton)
         ac_automaton_do_destroy(automaton);
 }
 
-void strider_ac_automaton_destroy_rcu(struct strider_ac_automaton *automaton) {
+void __cold strider_ac_automaton_destroy_rcu(struct strider_ac_automaton *automaton) {
     if (automaton)
         call_rcu(&automaton->rcu, ac_automaton_destroy_rcu_cb);
 }

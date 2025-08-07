@@ -15,17 +15,17 @@ struct strider_ac_match_state {
     size_t stream_pos; // position in the logical input stream
 };
 
-struct strider_ac_automaton * __must_check strider_ac_automaton_compile(const char *const *patterns, size_t num_patterns);
+struct strider_ac_automaton * __cold __must_check strider_ac_automaton_compile(const char *const *patterns, size_t num_patterns);
 
 /**
  * strider_ac_automaton_destroy() - Destroy an automaton synchronously.
  */
-void strider_ac_automaton_destroy(struct strider_ac_automaton *automaton);
+void __cold strider_ac_automaton_destroy(struct strider_ac_automaton *automaton);
 
 /**
  * strider_ac_automaton_destroy_rcu() - Schedule the destruction of an automaton via RCU.
  */
-void strider_ac_automaton_destroy_rcu(struct strider_ac_automaton *automaton);
+void __cold strider_ac_automaton_destroy_rcu(struct strider_ac_automaton *automaton);
 
 void strider_ac_match_state_init(struct strider_ac_match_state *state, const struct strider_ac_automaton *automaton);
 
