@@ -1,11 +1,8 @@
 #include "strider_manager.h"
 
-// #include <linux/cache.h>
 #include <linux/compiler.h>
 #include <linux/err.h>
 #include <linux/errno.h>
-// #include <linux/kernel.h>
-// #include <linux/limits.h>
 #include <linux/hashtable.h>
 #include <linux/jhash.h>
 #include <linux/list.h>
@@ -15,7 +12,6 @@
 #include <linux/string.h>
 #include <linux/types.h>
 #include <strider/defs.h>
-#include <linux/vmalloc.h>
 #include <linux/lockdep.h>
 #include "strider_ac.h"
 
@@ -235,66 +231,16 @@ fail:
     goto out;
 }
 
-// static int strider_match_cb(const void *priv, size_t offset, void *cb_ctx) {
-//     const struct strider_rule *rule = priv;
-//     enum strider_verdict current_verdict = STRIDER_VERDICT_NOMATCH;
-//     switch (rule->action) {
-//         case STRIDER_ACTION_DROP:
-//             current_verdict = STRIDER_VERDICT_DROP;
-//             break;
-//         case STRIDER_ACTION_ACCEPT:
-//             current_verdict = STRIDER_VERDICT_ACCEPT;
-//             break;
-//         case STRIDER_ACTION_UNSPEC:
-//             // should not happen
-//             WARN_ON_ONCE(1);
-//             break;
-//     }
+const struct strider_set *strider_set_lookup_rcu(const char *name) {
+    u32 hash_key = jhash(name, strlen(name), 0);
+    const struct strider_set *set;
+    hash_for_each_possible_rcu(strider_sets_ht, set, node, hash_key) {
+        if (strcmp(set->name, name) == 0)
+            return set;
+    }
+    return NULL;
+}
 
-//     struct strider_match_ctx *ctx = cb_ctx;
-//     if (strider_get_verdict_precedence(current_verdict) < strider_get_verdict_precedence(ctx->verdict))
-//         ctx->verdict = current_verdict;
-
-//     if (strider_get_verdict_precedence(ctx->verdict) == STRIDER_VERDICT_HIGHEST_PRECEDENCE)
-//         return 1; // highest precedence verdict found, abort
-//     return 0;     // continue matching
-// }
-
-// bool strider_matching_match_skb(const struct sk_buff *skb) {
-//     rcu_read_lock();
-
-//     struct strider_match_ctx match_ctx = {.verdict = STRIDER_VERDICT_NOMATCH};
-//     const struct strider_ac_rcu *wrapper = rcu_dereference(strider_ac_automaton);
-//     if (!wrapper)
-//         goto out;
-//     const struct strider_ac_automaton *automaton = wrapper->automaton;
-
-//     size_t offset, len;
-//     if (strider_get_l4_payload_coords(skb, &offset, &len) < 0 || len == 0) {
-//         match_ctx.verdict = STRIDER_VERDICT_ACCEPT;
-//         goto out;
-//     }
-
-//     struct skb_seq_state skb_state;
-//     skb_prepare_seq_read((struct sk_buff *) skb, offset, offset + len, &skb_state);
-//     struct strider_ac_match_state ac_state;
-//     strider_ac_match_state_init(&ac_state, automaton);
-
-//     const u8 *payload_frag;
-//     unsigned int frag_len;
-//     unsigned int consumed = 0;
-//     while ((frag_len = skb_seq_read(consumed, &payload_frag, &skb_state)) > 0) {
-//         int ret = strider_ac_automaton_feed(&ac_state, payload_frag, frag_len, strider_match_cb, &match_ctx);
-//         consumed += frag_len;
-//         if (ret != 0)
-//             goto out_abort_read;
-//     }
-
-// out_abort_read:
-//     skb_abort_seq_read(&skb_state);
-
-// out:
-//     rcu_read_unlock();
-
-//     return match_ctx.verdict;
-// }
+const struct strider_ac_automaton *strider_get_automaton(const struct strider_set *set) {
+    return rcu_dereference(set->automaton);
+}

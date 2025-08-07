@@ -23,7 +23,7 @@ int __cold strider_set_del_pattern(const char *set_name, const char *pattern);
 
 const struct strider_set *strider_set_lookup_rcu(const char *name);
 
-const struct strider_ac_automaton *strider_set_get_automaton(const struct strider_set *set);
+const struct strider_ac_automaton *strider_get_automaton(const struct strider_set *set);
 
 
 #endif //STRIDER_MANAGER_H
