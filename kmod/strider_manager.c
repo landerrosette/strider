@@ -38,8 +38,7 @@ struct strider_set {
 static DEFINE_HASHTABLE(strider_sets_ht, STRIDER_SETS_HASH_BITS);
 static DEFINE_MUTEX(strider_sets_ht_lock); // lock to protect write access to the hash table
 
-// MUST be called with strider_sets_ht_lock held
-static struct strider_set * __cold strider_set_lookup_locked(const char *name) {
+static struct strider_set * __cold strider_set_lookup_locked(const char *name) __must_hold(&strider_sets_ht_lock) {
     u32 hash_key = jhash(name, strlen(name), 0);
     struct strider_set *set;
     hash_for_each_possible(strider_sets_ht, set, node, hash_key) {
@@ -49,8 +48,7 @@ static struct strider_set * __cold strider_set_lookup_locked(const char *name) {
     return NULL;
 }
 
-// MUST be called with set->lock held
-static int __cold strider_set_rebuild_automaton_locked(struct strider_set *set) {
+static int __cold strider_set_rebuild_automaton_locked(struct strider_set *set) __must_hold(&set->lock) {
     size_t num_patterns = 0;
     const struct strider_pattern_entry *entry;
     list_for_each_entry(entry, &set->patterns, list)
@@ -73,8 +71,7 @@ static int __cold strider_set_rebuild_automaton_locked(struct strider_set *set) 
     return 0;
 }
 
-// MUST be called with set->lock held
-static void __cold strider_set_deinit_locked(struct strider_set *set) {
+static void __cold strider_set_deinit_locked(struct strider_set *set) __must_hold(&set->lock) {
     struct strider_pattern_entry *entry, *tmp;
     list_for_each_entry_safe(entry, tmp, &set->patterns, list) {
         list_del(&entry->list);
