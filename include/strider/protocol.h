@@ -2,6 +2,8 @@
 #define STRIDER_PROTOCOL_H
 
 
+#include "defs.h"
+
 #define STRIDER_GENL_FAMILY_NAME "strider"
 #define STRIDER_GENL_VERSION 2
 
