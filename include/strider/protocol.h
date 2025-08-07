@@ -8,6 +8,8 @@
 // commands that can be sent over netlink
 enum {
     STRIDER_CMD_UNSPEC,
+    STRIDER_CMD_CREATE_SET,
+    STRIDER_CMD_DESTROY_SET,
     STRIDER_CMD_ADD_PATTERN,
     STRIDER_CMD_DEL_PATTERN,
     __STRIDER_CMD_MAX,
@@ -18,6 +20,7 @@ enum {
 // netlink attributes used in the messages
 enum {
     STRIDER_NLA_UNSPEC,
+    STRIDER_NLA_SET_NAME, // type: NLA_NUL_STRING
     STRIDER_NLA_PATTERN, // type: NLA_NUL_STRING
     __STRIDER_NLA_MAX,
 };
