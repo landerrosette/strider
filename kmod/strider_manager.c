@@ -53,7 +53,7 @@ static int __cold strider_set_rebuild_automaton_locked(struct strider_set *set) 
     const struct strider_pattern_entry *entry;
     list_for_each_entry(entry, &set->patterns, list)
         ++num_patterns;
-    const char **patterns_array = vmalloc(num_patterns * sizeof(*patterns_array));
+    const char **patterns_array = kvmalloc_array(num_patterns, sizeof(*patterns_array), GFP_KERNEL);
     if (!patterns_array)
         return -ENOMEM;
     size_t i = 0;
@@ -61,7 +61,7 @@ static int __cold strider_set_rebuild_automaton_locked(struct strider_set *set) 
         patterns_array[i++] = entry->pattern;
 
     struct strider_ac_automaton *new_automaton = strider_ac_automaton_compile(patterns_array, num_patterns);
-    vfree(patterns_array);
+    kvfree(patterns_array);
     if (IS_ERR(new_automaton))
         return PTR_ERR(new_automaton);
     struct strider_ac_automaton *old_automaton = rcu_replace_pointer(set->automaton, new_automaton, lockdep_is_held(&set->lock));
