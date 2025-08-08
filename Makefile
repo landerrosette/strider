@@ -1,14 +1,15 @@
-.PHONY: all kmod cli clean install
+SUBDIRS := strider_core cli
 
-all: kmod cli
+.PHONY: all $(SUBDIRS) clean install
 
-kmod cli:
+all: $(SUBDIRS)
+
+$(SUBDIRS):
 	$(MAKE) -C $@
 
-clean:
-	$(MAKE) -C kmod clean
-	$(MAKE) -C cli clean
+clean install:
+	@for dir in $(SUBDIRS); do \
+		$(MAKE) -C $$dir $@; \
+	done
 
 install: all
-	$(MAKE) -C kmod install
-	$(MAKE) -C cli install
