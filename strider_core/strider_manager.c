@@ -11,7 +11,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/types.h>
-#include <strider/defs.h>
+#include <strider/limits.h>
 #include <linux/lockdep.h>
 #include "strider_ac.h"
 
@@ -24,7 +24,7 @@ struct strider_pattern_entry {
 
 struct strider_set {
     struct hlist_node node;
-    char name[STRIDER_SET_NAME_MAX_LEN];
+    char name[STRIDER_SET_NAME_MAX_LEN + 1];
     struct list_head patterns; // list of strider_pattern_entry
     struct strider_ac_automaton __rcu *automaton;
     struct mutex lock;
@@ -108,7 +108,7 @@ int __cold strider_set_create(const char *name) {
         ret = -ENOMEM;
         goto out;
     }
-    strscpy(new_set->name, name, STRIDER_SET_NAME_MAX_LEN);
+    strscpy(new_set->name, name, STRIDER_SET_NAME_MAX_LEN + 1);
     INIT_LIST_HEAD(&new_set->patterns);
     mutex_init(&new_set->lock);
 
