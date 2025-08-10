@@ -1,10 +1,10 @@
 #include "strider_ac.h"
 
 #include <kunit/test.h>
+#include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/types.h>
-#include <linux/err.h>
 
 struct ac_test_match_ctx {
     struct kunit *test;
@@ -66,7 +66,7 @@ static void strider_ac_test_no_match(struct kunit *test) {
 }
 
 static int strider_ac_test_init(struct kunit *test) {
-    const char * const patterns[] = {
+    const char *const patterns[] = {
         "hello",
         "she",
         "he",

@@ -1,5 +1,6 @@
 #include "strider_ac.h"
 
+#include <linux/compiler.h>
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/kernel.h>
@@ -10,7 +11,6 @@
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/workqueue.h>
-#include <linux/compiler.h>
 
 // Represents a finalized, read-only transition.
 struct ac_transition {
@@ -264,7 +264,8 @@ static void __cold ac_automaton_destroy_rcu_cb(struct rcu_head *rcu) {
     schedule_work(&automaton->destroy_work);
 }
 
-struct strider_ac_automaton * __cold __must_check strider_ac_automaton_compile(const char *const *patterns, size_t num_patterns) {
+struct strider_ac_automaton * __cold __must_check strider_ac_automaton_compile(
+    const char *const *patterns, size_t num_patterns) {
     struct strider_ac_automaton *automaton = kzalloc(sizeof(*automaton), GFP_KERNEL);
     int ret = 0;
     if (!automaton) {
