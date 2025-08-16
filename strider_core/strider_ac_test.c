@@ -80,10 +80,28 @@ static void strider_ac_test_streaming_match(struct kunit *test) {
     strider_ac_destroy(ac);
 }
 
+// Test case 4: Empty input
+static void strider_ac_test_empty_input(struct kunit *test) {
+    const char *patterns[] = {
+        "abc",
+        NULL
+    };
+    struct strider_ac *ac = strider_ac_build(patterns);
+    KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ac);
+
+    struct strider_ac_match_state state;
+    strider_ac_match_init(ac, &state);
+    bool found = strider_ac_match_next(&state, "", 0);
+    KUNIT_EXPECT_FALSE(test, found);
+
+    strider_ac_destroy(ac);
+}
+
 static struct kunit_case strider_ac_test_cases[] = {
     KUNIT_CASE(strider_ac_test_basic_match),
     KUNIT_CASE(strider_ac_test_failure_path_transition),
     KUNIT_CASE(strider_ac_test_streaming_match),
+    KUNIT_CASE(strider_ac_test_empty_input),
     {}
 };
 
