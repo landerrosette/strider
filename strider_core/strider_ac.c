@@ -195,11 +195,9 @@ int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask) {
         }
     }
     ac_failures_build(ac->root);
-
 out:
     WARN_ON_ONCE(!list_empty(&queue));
     return ret;
-
 fail:
     struct ac_node *node, *tmp;
     // clear the in-flight traversal queue
