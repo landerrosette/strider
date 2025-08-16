@@ -6,7 +6,6 @@
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/sort.h>
-// #include <linux/string.h>
 #include <linux/types.h>
 
 // Represents a finalized, read-only transition.
@@ -28,7 +27,7 @@ struct ac_node {
     struct ac_node *failure;
     struct ac_transition *transitions;
     size_t num_transitions;
-    bool is_output;
+    bool has_outputs;
 };
 
 struct strider_ac {
@@ -124,7 +123,7 @@ static struct ac_node *ac_transition_find(const struct ac_node *node, u8 ch) {
 }
 
 // find the failure link target for a node, starting from its parent
-static struct ac_node *ac_failure_build(const struct ac_node *parent, u8 ch) {
+static struct ac_node *ac_failure_find_target(const struct ac_node *parent, u8 ch) {
     const struct ac_node *node;
     for (node = parent->failure; node != node->failure; node = node->failure) {
         struct ac_node *target = ac_transition_find(node, ch);
@@ -149,8 +148,9 @@ static void ac_failures_build(struct ac_node *root) {
         list_del(&node->traversal_list);
         for (size_t i = 0; i < node->num_transitions; ++i) {
             struct ac_node *child = node->transitions[i].next;
-            struct ac_node *failure_target = ac_failure_build(node, node->transitions[i].ch);
+            struct ac_node *failure_target = ac_failure_find_target(node, node->transitions[i].ch);
             child->failure = failure_target ? failure_target : root;
+            child->has_outputs = child->has_outputs || child->failure->has_outputs;
             list_add_tail(&child->traversal_list, &queue);
         }
     }
@@ -175,14 +175,13 @@ int strider_ac_add_pattern(struct strider_ac *ac, const u8 *pattern, size_t len,
         if (IS_ERR(node))
             return PTR_ERR(node);
     }
-    node->is_output = true;
+    node->has_outputs = true;
     return 0;
 }
 
 int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask) {
     LIST_HEAD(queue);
     int ret = 0;
-
     list_add_tail(&ac->root->traversal_list, &queue);
     while (!list_empty(&queue)) {
         struct ac_node *node = list_first_entry(&queue, struct ac_node, traversal_list);
@@ -195,7 +194,6 @@ int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask) {
             list_add_tail(&child->traversal_list, &queue);
         }
     }
-
     ac_failures_build(ac->root);
 
 out:
@@ -210,180 +208,53 @@ fail:
     goto out;
 }
 
-// static void __cold ac_automaton_do_destroy(struct strider_ac_automaton *automaton) {
-//     if (!automaton->root) {
-//         kfree(automaton);
-//         return;
-//     }
+void strider_ac_destroy(struct strider_ac *ac) {
+    LIST_HEAD(queue);
+    list_add_tail(&ac->root->traversal_list, &queue);
+    while (!list_empty(&queue)) {
+        struct ac_node *node = list_first_entry(&queue, struct ac_node, traversal_list);
+        list_del(&node->traversal_list);
 
-//     LIST_HEAD(queue);
-//     list_add_tail(&automaton->root->traversal_list, &queue);
-//     while (!list_empty(&queue)) {
-//         struct ac_node *node = list_first_entry(&queue, struct ac_node, traversal_list);
-//         list_del(&node->traversal_list); // dequeue the current node
+        if (node->transitions) {
+            for (size_t i = 0; i < node->num_transitions; ++i)
+                list_add_tail(&node->transitions[i].next->traversal_list, &queue);
+        } else {
+            struct ac_transition_linked *trans;
+            list_for_each_entry(trans, &node->linked_transitions, list)
+                list_add_tail(&trans->next->traversal_list, &queue);
+        }
 
-//         // enqueue all children for the next cleanup iteration
-//         if (node->transitions) {
-//             for (size_t i = 0; i < node->num_transitions; ++i)
-//                 list_add_tail(&node->transitions[i].next->traversal_list, &queue);
-//         } else {
-//             struct ac_transition_linked *bt;
-//             list_for_each_entry(bt, &node->linked_transitions, list)
-//                 list_add_tail(&bt->next->traversal_list, &queue);
-//         }
+        ac_node_deinit(node);
+        kfree(node);
+    }
+    kfree(ac);
+}
 
-//         ac_node_deinit(node);
-//         kfree(node);
-//     }
+void strider_ac_match_init(const struct strider_ac *ac, struct strider_ac_match_state *state) {
+    state->cursor = ac->root;
+}
 
-//     kfree(automaton);
-// }
+bool strider_ac_match_next(struct strider_ac_match_state *state, const u8 *data, size_t len) {
+    for (size_t i = 0; i < len; ++i) {
+        u8 ch = data[i];
+        for (const struct ac_node *node = state->cursor; ; node = node->failure) {
+            // Follow transitions for the current symbol.
+            // If a direct transition fails, traverse failure links
+            // until a valid transition is found or the root is reached.
+            const struct ac_node *next = ac_transition_find(node, ch);
+            if (next) {
+                state->cursor = next;
+                break;
+            }
+            if (node->failure == node) {
+                // reached root
+                state->cursor = node;
+                break;
+            }
+        }
 
-// struct strider_ac_automaton * __cold __must_check strider_ac_automaton_compile(
-//     const char *const *patterns, size_t num_patterns) {
-//     struct strider_ac_automaton *automaton = kzalloc(sizeof(*automaton), GFP_KERNEL);
-//     int ret = 0;
-//     if (!automaton) {
-//         ret = -ENOMEM;
-//         goto fail;
-//     }
-//     automaton->root = ac_node_create();
-//     if (!automaton->root) {
-//         kfree(automaton);
-//         ret = -ENOMEM;
-//         goto fail;
-//     }
-//     automaton->root->failure = automaton->root;
-
-//     for (size_t i = 0; i < num_patterns; ++i) {
-//         const char *pattern = patterns[i];
-//         size_t len = strlen(pattern);
-//         ret = ac_trie_add_pattern(automaton->root, pattern, len);
-//         if (ret < 0)
-//             goto fail_automaton_destroy;
-//     }
-
-//     ret = ac_trie_finalize(automaton->root);
-//     if (ret < 0)
-//         goto fail_automaton_destroy;
-
-//     ac_failures_build(automaton->root);
-
-//     return automaton;
-
-// fail_automaton_destroy:
-//     strider_ac_automaton_destroy(automaton);
-// fail:
-//     return ERR_PTR(ret);
-// }
-
-// void __cold strider_ac_automaton_destroy(struct strider_ac_automaton *automaton) {
-//     if (automaton)
-//         ac_automaton_do_destroy(automaton);
-// }
-
-// void __cold strider_ac_automaton_destroy_rcu(struct strider_ac_automaton *automaton) {
-//     if (automaton)
-//         call_rcu(&automaton->rcu, ac_automaton_destroy_rcu_cb);
-// }
-
-// void strider_ac_match_state_init(struct strider_ac_match_state *state, const struct strider_ac_automaton *automaton) {
-//     state->cursor = automaton->root;
-//     state->automaton = automaton;
-//     state->stream_pos = 0;
-// }
-
-// int strider_ac_automaton_scan(struct strider_ac_match_state *state, const u8 *data, size_t len,
-//                               int (*cb)(void *cb_ctx), void *cb_ctx) {
-//     if (unlikely(!state->automaton))
-//         return 0;
-//     const struct ac_node *root = state->automaton->root;
-//     for (size_t i = 0; i < len; ++i) {
-//         // Follow transitions for the current character.
-//         // If a direct transition fails, traverse failure links
-//         // until a valid transition is found or the root is reached.
-//         u8 chr = data[i];
-//         const struct ac_node *curr_node = state->cursor;
-//         while (true) {
-//             const struct ac_node *next = ac_transition_find(curr_node, chr);
-//             if (next) {
-//                 state->cursor = next;
-//                 break;
-//             }
-//             if (curr_node == root) {
-//                 state->cursor = root;
-//                 break;
-//             }
-//             curr_node = curr_node->failure;
-//         }
-
-//         // Inspect each node in the failure chain starting from the final state, to report all matches.
-//         // This is done to ensure that all patterns that end at the current position are reported,
-//         // including shorter patterns that are suffixes of longer ones.
-//         for (const struct ac_node *out_node = state->cursor;; out_node = out_node->failure) {
-//             if (!list_empty(&out_node->outputs)) {
-//                 const struct ac_output *out;
-//                 list_for_each_entry(out, &out_node->outputs, list) {
-//                     int ret = cb(cb_ctx);
-//                     if (ret != 0) {
-//                         // callback requested to stop
-//                         state->stream_pos += i + 1;
-//                         return ret;
-//                     }
-//                 }
-//             }
-//             if (out_node == root)
-//                 break;
-//         }
-//     }
-
-//     state->stream_pos += len;
-//     return 0;
-// }
-
-// static int __cold ac_trie_add_pattern(struct ac_node *root, const char *pattern, size_t len) {
-//     struct ac_node *node = root;
-
-//     for (size_t i = 0; i < len; ++i) {
-//         node = ac_transition_build(node, ((const u8 *) pattern)[i]);
-//         if (IS_ERR(node))
-//             return PTR_ERR(node);
-//     }
-
-//     struct ac_output *output = kmalloc(sizeof(*output), GFP_KERNEL);
-//     if (!output)
-//         return -ENOMEM;
-//     output->len = len;
-//     list_add_tail(&output->list, &node->outputs);
-
-//     return 0;
-// }
-
-// // finalize the trie by compacting transitions
-// static int ac_trie_finalize(struct ac_node *root) {
-//     LIST_HEAD(queue);
-//     int ret = 0;
-//     list_add_tail(&root->traversal_list, &queue);
-//     while (!list_empty(&queue)) {
-//         struct ac_node *node = list_first_entry(&queue, struct ac_node, traversal_list);
-//         list_del(&node->traversal_list);
-//         ret = ac_transitions_finalize(node);
-//         if (ret < 0)
-//             goto fail;
-//         for (size_t i = 0; i < node->num_transitions; ++i) {
-//             struct ac_node *child = node->transitions[i].next;
-//             list_add_tail(&child->traversal_list, &queue);
-//         }
-//     }
-
-// out:
-//     WARN_ON_ONCE(!list_empty(&queue));
-//     return ret;
-
-// fail:
-//     struct ac_node *node, *tmp;
-//     // clear the in-flight traversal queue
-//     list_for_each_entry_safe(node, tmp, &queue, traversal_list)
-//         list_del(&node->traversal_list);
-//     goto out;
-// }
+        if (((const struct ac_node *) state->cursor)->has_outputs)
+            return true;
+    }
+    return false;
+}

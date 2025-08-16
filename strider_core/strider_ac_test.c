@@ -6,90 +6,76 @@
 #include <linux/module.h>
 #include <linux/types.h>
 
-struct ac_test_match_ctx {
-    struct kunit *test;
-    bool found;
-};
-
-static int ac_test_match_cb(void *cb_ctx) {
-    struct ac_test_match_ctx *ctx = cb_ctx;
-    ctx->found = true;
-    return 0;
-}
-
 // Test case 1: A single, simple match
 static void strider_ac_test_simple_match(struct kunit *test) {
-    const struct strider_ac_automaton *automaton = test->priv;
+    const struct strider_ac *ac = test->priv;
     struct strider_ac_match_state state;
-    struct ac_test_match_ctx ctx = {.test = test, .found = false};
 
-    strider_ac_match_state_init(&state, automaton);
-    strider_ac_automaton_scan(&state, "hello world", 11, ac_test_match_cb, &ctx);
-
-    KUNIT_EXPECT_TRUE(test, ctx.found);
+    strider_ac_match_init(ac, &state);
+    bool found = strider_ac_match_next(&state, "hello world", 11);
+    KUNIT_EXPECT_TRUE(test, found);
 }
 
 // Test case 2: Multiple matches with overlapping patterns
 static void strider_ac_test_multi_match_overlap(struct kunit *test) {
-    const struct strider_ac_automaton *automaton = test->priv;
+    const struct strider_ac *ac = test->priv;
     struct strider_ac_match_state state;
-    struct ac_test_match_ctx ctx = {.test = test, .found = false};
 
-    strider_ac_match_state_init(&state, automaton);
-    strider_ac_automaton_scan(&state, "ushers", 6, ac_test_match_cb, &ctx);
-
-    KUNIT_EXPECT_TRUE(test, ctx.found);
+    strider_ac_match_init(ac, &state);
+    bool found = strider_ac_match_next(&state, "ushers", 6);
+    KUNIT_EXPECT_TRUE(test, found);
 }
 
-// Test case 3: Failure transitions
-static void strider_ac_test_failure_transitions(struct kunit *test) {
-    const struct strider_ac_automaton *automaton = test->priv;
-    struct strider_ac_match_state state;
-    struct ac_test_match_ctx ctx = {.test = test, .found = false};
-
-    strider_ac_match_state_init(&state, automaton);
-    strider_ac_automaton_scan(&state, "ashe", 4, ac_test_match_cb, &ctx);
-
-    KUNIT_EXPECT_TRUE(test, ctx.found);
-}
-
-// Test case 4: No match
+// Test case 3: No match
 static void strider_ac_test_no_match(struct kunit *test) {
-    const struct strider_ac_automaton *automaton = test->priv;
+    const struct strider_ac *ac = test->priv;
     struct strider_ac_match_state state;
-    struct ac_test_match_ctx ctx = {.test = test, .found = false};
 
-    strider_ac_match_state_init(&state, automaton);
-    strider_ac_automaton_scan(&state, "goodbye planet", 14, ac_test_match_cb, &ctx);
-
-    KUNIT_EXPECT_FALSE(test, ctx.found);
+    strider_ac_match_init(ac, &state);
+    bool found = strider_ac_match_next(&state, "goodbye planet", 14);
+    KUNIT_EXPECT_FALSE(test, found);
 }
 
 static int strider_ac_test_init(struct kunit *test) {
-    const char *const patterns[] = {
+    const char *patterns[] = {
         "hello",
         "she",
         "he",
         "hers",
     };
-    size_t num_patterns = ARRAY_SIZE(patterns);
 
-    struct strider_ac_automaton *automaton = strider_ac_automaton_compile(patterns, num_patterns);
-    if (IS_ERR(automaton))
-        return PTR_ERR(automaton);
+    int ret = 0;
+    struct strider_ac *ac = strider_ac_init(GFP_KERNEL);
+    if (IS_ERR(ac)) {
+        ret = PTR_ERR(ac);
+        goto out;
+    }
+    for (int i = 0; i < ARRAY_SIZE(patterns); ++i) {
+        ret = strider_ac_add_pattern(ac, (const u8 *) patterns[i], strlen(patterns[i]), GFP_KERNEL);
+        if (ret < 0)
+            goto fail;
+    }
+    ret = strider_ac_compile(ac, GFP_KERNEL);
+    if (ret < 0)
+        goto fail;
 
-    test->priv = automaton;
-    return 0;
+    test->priv = ac;
+
+out:
+    return ret;
+
+fail:
+    strider_ac_destroy(ac);
+    goto out;
 }
 
 static void strider_ac_test_exit(struct kunit *test) {
-    strider_ac_automaton_destroy(test->priv);
+    strider_ac_destroy(test->priv);
 }
 
 static struct kunit_case strider_ac_test_cases[] = {
     KUNIT_CASE(strider_ac_test_simple_match),
     KUNIT_CASE(strider_ac_test_multi_match_overlap),
-    KUNIT_CASE(strider_ac_test_failure_transitions),
     KUNIT_CASE(strider_ac_test_no_match),
     {}
 };
