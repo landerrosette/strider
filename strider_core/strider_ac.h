@@ -12,11 +12,11 @@ struct strider_ac_match_state {
 
 struct strider_ac *strider_ac_init(gfp_t gfp_mask);
 
+void strider_ac_schedule_destroy(struct strider_ac *ac);
+
 int strider_ac_add_pattern(struct strider_ac *ac, const u8 *pattern, size_t len, gfp_t gfp_mask);
 
 int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask);
-
-void strider_ac_destroy(struct strider_ac *ac);
 
 void strider_ac_match_init(const struct strider_ac *ac, struct strider_ac_match_state *state);
 

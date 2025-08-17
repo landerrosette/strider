@@ -4,9 +4,11 @@
 #include <linux/errno.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
+#include <linux/rcupdate.h>
 #include <linux/slab.h>
 #include <linux/sort.h>
 #include <linux/types.h>
+#include <linux/workqueue.h>
 
 // Represents a finalized, read-only transition.
 struct ac_transition {
@@ -32,6 +34,8 @@ struct ac_node {
 
 struct strider_ac {
     struct ac_node *root;
+    struct work_struct destroy_work;
+    struct rcu_head rcu;
 };
 
 static struct ac_node *ac_node_create(gfp_t gfp_mask) {
@@ -50,6 +54,36 @@ static void ac_node_deinit(struct ac_node *node) {
         list_del(&trans->list);
         kfree(trans);
     }
+}
+
+static void ac_do_destroy(struct strider_ac *ac) {
+    LIST_HEAD(queue);
+    list_add_tail(&ac->root->traversal_list, &queue);
+    while (!list_empty(&queue)) {
+        struct ac_node *node = list_first_entry(&queue, struct ac_node, traversal_list);
+        list_del(&node->traversal_list);
+
+        for (size_t i = 0; i < node->num_transitions; ++i)
+            list_add_tail(&node->transitions[i].next->traversal_list, &queue);
+        struct ac_transition_linked *trans;
+        list_for_each_entry(trans, &node->linked_transitions, list)
+            list_add_tail(&trans->next->traversal_list, &queue);
+
+        ac_node_deinit(node);
+        kfree(node);
+    }
+    kfree(ac);
+}
+
+static void ac_destroy_work_fn(struct work_struct *work) {
+    struct strider_ac *ac = container_of(work, struct strider_ac, destroy_work);
+    ac_do_destroy(ac);
+}
+
+static void ac_destroy_rcu_cb(struct rcu_head *rcu) {
+    struct strider_ac *ac = container_of(rcu, struct strider_ac, rcu);
+    INIT_WORK(&ac->destroy_work, ac_destroy_work_fn);
+    schedule_work(&ac->destroy_work);
 }
 
 static struct ac_node *ac_transition_build(struct ac_node *node, u8 ch, gfp_t gfp_mask) {
@@ -168,6 +202,10 @@ struct strider_ac *strider_ac_init(gfp_t gfp_mask) {
     return ac;
 }
 
+void strider_ac_schedule_destroy(struct strider_ac *ac) {
+    call_rcu(&ac->rcu, ac_destroy_rcu_cb);
+}
+
 int strider_ac_add_pattern(struct strider_ac *ac, const u8 *pattern, size_t len, gfp_t gfp_mask) {
     struct ac_node *node = ac->root;
     for (size_t i = 0; i < len; ++i) {
@@ -204,25 +242,6 @@ fail:
     list_for_each_entry_safe(node, tmp, &queue, traversal_list)
         list_del(&node->traversal_list);
     goto out;
-}
-
-void strider_ac_destroy(struct strider_ac *ac) {
-    LIST_HEAD(queue);
-    list_add_tail(&ac->root->traversal_list, &queue);
-    while (!list_empty(&queue)) {
-        struct ac_node *node = list_first_entry(&queue, struct ac_node, traversal_list);
-        list_del(&node->traversal_list);
-
-        for (size_t i = 0; i < node->num_transitions; ++i)
-            list_add_tail(&node->transitions[i].next->traversal_list, &queue);
-        struct ac_transition_linked *trans;
-        list_for_each_entry(trans, &node->linked_transitions, list)
-            list_add_tail(&trans->next->traversal_list, &queue);
-
-        ac_node_deinit(node);
-        kfree(node);
-    }
-    kfree(ac);
 }
 
 void strider_ac_match_init(const struct strider_ac *ac, struct strider_ac_match_state *state) {

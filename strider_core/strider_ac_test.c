@@ -21,7 +21,7 @@ static struct strider_ac *strider_ac_build(const char *patterns[]) {
 out:
     return ac;
 fail:
-    strider_ac_destroy(ac);
+    strider_ac_schedule_destroy(ac);
     return ERR_PTR(ret);
 }
 
@@ -40,7 +40,7 @@ static void strider_ac_test_basic_match(struct kunit *test) {
     bool found = strider_ac_match_next(&state, "ushers", 6);
     KUNIT_EXPECT_TRUE(test, found);
 
-    strider_ac_destroy(ac);
+    strider_ac_schedule_destroy(ac);
 }
 
 // Test case 2: Failure path transition
@@ -58,7 +58,7 @@ static void strider_ac_test_failure_path_transition(struct kunit *test) {
     bool found = strider_ac_match_next(&state, "abcf", 4);
     KUNIT_EXPECT_TRUE(test, found);
 
-    strider_ac_destroy(ac);
+    strider_ac_schedule_destroy(ac);
 }
 
 // Test case 3: Streaming match across blocks
@@ -77,7 +77,7 @@ static void strider_ac_test_streaming_match(struct kunit *test) {
     found = strider_ac_match_next(&state, "tern", 4);
     KUNIT_EXPECT_TRUE(test, found);
 
-    strider_ac_destroy(ac);
+    strider_ac_schedule_destroy(ac);
 }
 
 // Test case 4: Empty input
@@ -94,7 +94,7 @@ static void strider_ac_test_empty_input(struct kunit *test) {
     bool found = strider_ac_match_next(&state, "", 0);
     KUNIT_EXPECT_FALSE(test, found);
 
-    strider_ac_destroy(ac);
+    strider_ac_schedule_destroy(ac);
 }
 
 static struct kunit_case strider_ac_test_cases[] = {
