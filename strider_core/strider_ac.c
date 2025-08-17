@@ -213,14 +213,11 @@ void strider_ac_destroy(struct strider_ac *ac) {
         struct ac_node *node = list_first_entry(&queue, struct ac_node, traversal_list);
         list_del(&node->traversal_list);
 
-        if (node->transitions) {
-            for (size_t i = 0; i < node->num_transitions; ++i)
-                list_add_tail(&node->transitions[i].next->traversal_list, &queue);
-        } else {
-            struct ac_transition_linked *trans;
-            list_for_each_entry(trans, &node->linked_transitions, list)
-                list_add_tail(&trans->next->traversal_list, &queue);
-        }
+        for (size_t i = 0; i < node->num_transitions; ++i)
+            list_add_tail(&node->transitions[i].next->traversal_list, &queue);
+        struct ac_transition_linked *trans;
+        list_for_each_entry(trans, &node->linked_transitions, list)
+            list_add_tail(&trans->next->traversal_list, &queue);
 
         ac_node_deinit(node);
         kfree(node);
