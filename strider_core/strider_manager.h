@@ -23,6 +23,8 @@ struct strider_set {
     char name[STRIDER_SET_NAME_MAX_LEN + 1];
 };
 
+void strider_manager_cleanup(void);
+
 int strider_set_create(const char *name);
 
 int strider_set_destroy(const char *name);
