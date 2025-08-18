@@ -4,7 +4,7 @@ OBJS := $(patsubst %.c, %.o, $(SRCS))
 DEPS := $(patsubst %.c, %.d, $(SRCS))
 
 CC := gcc
-CFLAGS ?= -Wall -Wextra -g
+CFLAGS ?= -Wall -Wextra -g -O2
 CPPFLAGS += -I../include $(shell pkg-config --cflags libnl-genl-3.0)
 LDLIBS := $(shell pkg-config --libs libnl-genl-3.0)
 
