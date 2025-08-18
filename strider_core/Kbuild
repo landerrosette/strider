@@ -1,6 +1,6 @@
 obj-m := strider_core.o
-strider_core-y := strider_nl.o strider_manager.o strider_ac.o
+strider_core-y := manager.o ac.o
 ccflags-y += -I$(src)/../include
 
-obj-$(CONFIG_STRIDER_AC_TEST) := strider_ac_test_kunit.o
-strider_ac_test_kunit-y := strider_ac_test.o strider_ac.o
+obj-$(CONFIG_STRIDER_AC_TEST) := strider_ac_test.o
+strider_ac_test-y := ac_test.o ac.o

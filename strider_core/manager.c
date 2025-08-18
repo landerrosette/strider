@@ -1,4 +1,4 @@
-#include "strider_manager.h"
+#include "manager.h"
 
 #include <linux/compiler.h>
 #include <linux/err.h>
@@ -14,7 +14,7 @@
 #include <linux/types.h>
 #include <strider/limits.h>
 
-#include "strider_ac.h"
+#include "ac.h"
 
 #define STRIDER_SETS_HASH_BITS 4
 
@@ -34,29 +34,29 @@ static struct strider_set *strider_set_lookup_locked(const char *name) __must_ho
 static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&set->lock) {
     int ret = 0;
 
-    struct strider_ac *new_ac = strider_ac_init(GFP_KERNEL);
+    struct strider_ac *new_ac = ac_init(GFP_KERNEL);
     if (IS_ERR(new_ac)) {
         ret = PTR_ERR(new_ac);
         goto out;
     }
     const struct strider_pattern_entry *entry;
     list_for_each_entry(entry, &set->patterns, list) {
-        ret = strider_ac_add_pattern(new_ac, entry->pattern, strlen(entry->pattern), GFP_KERNEL);
+        ret = ac_add_pattern(new_ac, entry->pattern, strlen(entry->pattern), GFP_KERNEL);
         if (ret < 0)
             goto fail;
     }
-    ret = strider_ac_compile(new_ac, GFP_KERNEL);
+    ret = ac_compile(new_ac, GFP_KERNEL);
     if (ret < 0)
         goto fail;
 
     struct strider_ac *old_ac = rcu_replace_pointer(set->ac, new_ac, lockdep_is_held(&set->lock));
     if (old_ac)
-        strider_ac_schedule_destroy(old_ac);
+        ac_schedule_destroy(old_ac);
 
 out:
     return ret;
 fail:
-    strider_ac_schedule_destroy(new_ac);
+    ac_schedule_destroy(new_ac);
     goto out;
 }
 
@@ -68,7 +68,7 @@ static void strider_set_deinit_locked(struct strider_set *set) __must_hold(&set-
     }
     struct strider_ac *ac = rcu_dereference_protected(set->ac, lockdep_is_held(&set->lock));
     if (ac)
-        strider_ac_schedule_destroy(ac);
+        ac_schedule_destroy(ac);
 }
 
 // int __init strider_manager_init(void) {

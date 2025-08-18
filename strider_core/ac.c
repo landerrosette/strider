@@ -1,4 +1,4 @@
-#include "strider_ac.h"
+#include "ac.h"
 
 #include <linux/err.h>
 #include <linux/errno.h>
@@ -190,7 +190,7 @@ static void ac_failures_build(struct ac_node *root) {
     }
 }
 
-struct strider_ac *strider_ac_init(gfp_t gfp_mask) {
+struct strider_ac *ac_init(gfp_t gfp_mask) {
     struct strider_ac *ac = kmalloc(sizeof(*ac), gfp_mask);
     if (!ac)
         return ERR_PTR(-ENOMEM);
@@ -202,11 +202,11 @@ struct strider_ac *strider_ac_init(gfp_t gfp_mask) {
     return ac;
 }
 
-void strider_ac_schedule_destroy(struct strider_ac *ac) {
+void ac_schedule_destroy(struct strider_ac *ac) {
     call_rcu(&ac->rcu, ac_destroy_rcu_cb);
 }
 
-int strider_ac_add_pattern(struct strider_ac *ac, const u8 *pattern, size_t len, gfp_t gfp_mask) {
+int ac_add_pattern(struct strider_ac *ac, const u8 *pattern, size_t len, gfp_t gfp_mask) {
     struct ac_node *node = ac->root;
     for (size_t i = 0; i < len; ++i) {
         node = ac_transition_build(node, pattern[i], gfp_mask);
@@ -217,7 +217,7 @@ int strider_ac_add_pattern(struct strider_ac *ac, const u8 *pattern, size_t len,
     return 0;
 }
 
-int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask) {
+int ac_compile(struct strider_ac *ac, gfp_t gfp_mask) {
     LIST_HEAD(queue);
     int ret = 0;
     list_add_tail(&ac->root->traversal_list, &queue);
@@ -244,11 +244,11 @@ fail:
     goto out;
 }
 
-void strider_ac_match_init(const struct strider_ac *ac, struct strider_ac_match_state *state) {
+void ac_match_init(const struct strider_ac *ac, struct ac_match_state *state) {
     state->cursor = ac->root;
 }
 
-bool strider_ac_match_next(struct strider_ac_match_state *state, const u8 *data, size_t len) {
+bool ac_match_next(struct ac_match_state *state, const u8 *data, size_t len) {
     for (size_t i = 0; i < len; ++i) {
         u8 ch = data[i];
         for (const struct ac_node *node = state->cursor; ; node = node->failure) {
