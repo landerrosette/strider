@@ -2,6 +2,7 @@
 #define STRIDER_MANAGER_H
 
 
+#include <linux/compiler.h>
 #include <linux/mutex.h>
 #include <linux/refcount.h>
 #include <linux/types.h>
