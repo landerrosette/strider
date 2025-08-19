@@ -10,9 +10,10 @@
 
 struct strider_ac;
 
-struct strider_pattern_entry {
+struct strider_pattern {
     struct list_head list;
-    char pattern[];
+    size_t len;
+    u8 data[];
 };
 
 struct strider_set {
