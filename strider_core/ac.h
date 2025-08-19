@@ -6,21 +6,21 @@
 
 struct strider_ac;
 
-struct ac_match_state {
+struct strider_ac_match_state {
     const void *cursor;
 };
 
-struct strider_ac *ac_init(gfp_t gfp_mask);
+struct strider_ac *strider_ac_init(gfp_t gfp_mask);
 
-void ac_schedule_destroy(struct strider_ac *ac);
+void strider_ac_schedule_destroy(struct strider_ac *ac);
 
-int ac_add_pattern(struct strider_ac *ac, const u8 *pattern, size_t len, gfp_t gfp_mask);
+int strider_ac_add_pattern(struct strider_ac *ac, const u8 *pattern, size_t len, gfp_t gfp_mask);
 
-int ac_compile(struct strider_ac *ac, gfp_t gfp_mask);
+int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask);
 
-void ac_match_init(const struct strider_ac *ac, struct ac_match_state *state);
+void strider_ac_match_init(const struct strider_ac *ac, struct strider_ac_match_state *state);
 
-bool ac_match_next(struct ac_match_state *state, const u8 *data, size_t len);
+bool strider_ac_match_next(struct strider_ac_match_state *state, const u8 *data, size_t len);
 
 
 #endif //STRIDER_AC_H
