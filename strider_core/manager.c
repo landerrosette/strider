@@ -24,6 +24,17 @@
 static DEFINE_HASHTABLE(strider_sets_ht, STRIDER_SETS_HASH_BITS);
 static DEFINE_MUTEX(strider_sets_ht_lock);
 
+static void strider_set_deinit_locked(struct strider_set *set) __must_hold(&set->lock) {
+    struct strider_pattern *entry, *tmp;
+    list_for_each_entry_safe(entry, tmp, &set->patterns, list) {
+        list_del(&entry->list);
+        kfree(entry);
+    }
+    struct strider_ac *ac = rcu_dereference_protected(set->ac, lockdep_is_held(&set->lock));
+    if (ac)
+        strider_ac_schedule_destroy(ac);
+}
+
 static struct strider_set *strider_set_lookup_locked(const char *name) __must_hold(&strider_sets_ht_lock) {
     u32 hash_key = jhash(name, strlen(name), 0);
     struct strider_set *set;
@@ -61,17 +72,6 @@ out:
 fail:
     strider_ac_schedule_destroy(new_ac);
     goto out;
-}
-
-static void strider_set_deinit_locked(struct strider_set *set) __must_hold(&set->lock) {
-    struct strider_pattern *entry, *tmp;
-    list_for_each_entry_safe(entry, tmp, &set->patterns, list) {
-        list_del(&entry->list);
-        kfree(entry);
-    }
-    struct strider_ac *ac = rcu_dereference_protected(set->ac, lockdep_is_held(&set->lock));
-    if (ac)
-        strider_ac_schedule_destroy(ac);
 }
 
 void strider_manager_cleanup(void) {
@@ -179,54 +179,52 @@ int strider_set_add_pattern(const char *set_name, const u8 *pattern, size_t len)
 
 out:
     return ret;
+fail_list_del:
+    list_del(&new_entry->list);
 fail_set_unlock:
     mutex_unlock(&set->lock);
     goto fail;
 fail_sets_ht_unlock:
     mutex_unlock(&strider_sets_ht_lock);
     goto fail;
-fail_list_del:
-    list_del(&new_entry->list);
 fail:
     kfree(new_entry);
     goto out;
 }
 
-// int __cold strider_set_del_pattern(const char *set_name, const char *data) {
-//     int ret = 0;
+int strider_set_del_pattern(const char *set_name, const u8 *pattern, size_t len) {
+    int ret = 0;
 
-//     mutex_lock(&strider_sets_ht_lock);
-//     struct strider_set *set = strider_set_lookup_locked(set_name);
-//     if (!set) {
-//         ret = -ENOENT;
-//         goto fail;
-//     }
-//     mutex_lock(&set->lock);
-//     mutex_unlock(&strider_sets_ht_lock);
-//     ret = -ENOENT;
-//     struct strider_pattern *entry, *tmp;
-//     list_for_each_entry_safe(entry, tmp, &set->patterns, list) {
-//         if (strcmp(entry->data, data) == 0) {
-//             list_del(&entry->list);
-//             ret = strider_set_rebuild_automaton_locked(set);
-//             if (ret < 0) {
-//                 // rollback
-//                 list_add(&entry->list, &set->patterns);
-//                 goto fail_set_unlock;
-//             }
-//             kfree(entry);
-//             break;
-//         }
-//     }
-//     mutex_unlock(&set->lock);
+    mutex_lock(&strider_sets_ht_lock);
+    struct strider_set *set = strider_set_lookup_locked(set_name);
+    if (!set) {
+        ret = -ENOENT;
+        goto fail;
+    }
+    mutex_lock(&set->lock);
+    mutex_unlock(&strider_sets_ht_lock);
 
-// out:
-//     return ret;
+    ret = -ENOENT;
+    struct strider_pattern *entry, *tmp;
+    list_for_each_entry_safe(entry, tmp, &set->patterns, list) {
+        if (entry->len == len && memcmp(entry->data, pattern, len) == 0) {
+            list_del(&entry->list);
+            ret = strider_set_refresh_ac_locked(set);
+            if (ret < 0)
+                goto fail_list_add;
+            kfree(entry);
+            break;
+        }
+    }
+    mutex_unlock(&set->lock);
 
-// fail_set_unlock:
-//     mutex_unlock(&set->lock);
-//     goto out;
-// fail:
-//     mutex_unlock(&strider_sets_ht_lock);
-//     goto out;
-// }
+out:
+    return ret;
+fail_list_add:
+    list_add(&entry->list, &set->patterns);
+    mutex_unlock(&set->lock);
+    goto out;
+fail:
+    mutex_unlock(&strider_sets_ht_lock);
+    goto out;
+}
