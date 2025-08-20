@@ -21,13 +21,13 @@ enum {
 
 // netlink attributes used in the messages
 enum {
-    STRIDER_NLA_UNSPEC,
-    STRIDER_NLA_SET_NAME, // type: NLA_NUL_STRING
-    STRIDER_NLA_PATTERN, // type: NLA_NUL_STRING
-    __STRIDER_NLA_MAX,
+    STRIDER_ATTR_UNSPEC,
+    STRIDER_ATTR_SET_NAME, // type: NLA_NUL_STRING
+    STRIDER_ATTR_PATTERN, // type: NLA_BINARY
+    __STRIDER_ATTR_MAX,
 };
 
-#define STRIDER_NLA_MAX (__STRIDER_NLA_MAX - 1)
+#define STRIDER_ATTR_MAX (__STRIDER_ATTR_MAX - 1)
 
 
 #endif //STRIDER_PROTOCOL_H
