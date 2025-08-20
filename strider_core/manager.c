@@ -100,7 +100,7 @@ int strider_set_create(const char *name) {
         ret = -ENOMEM;
         goto out;
     }
-    strscpy(new_set->name, name, STRIDER_SET_NAME_MAX_LEN + 1);
+    strscpy(new_set->name, name, STRIDER_MAX_SET_NAME_SIZE);
     INIT_LIST_HEAD(&new_set->patterns);
     mutex_init(&new_set->lock);
     refcount_set(&new_set->refcount, 0);

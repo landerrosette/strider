@@ -22,7 +22,7 @@ struct strider_set {
     struct hlist_node node;
     refcount_t refcount;
     struct list_head patterns;
-    char name[STRIDER_SET_NAME_MAX_LEN + 1];
+    char name[STRIDER_MAX_SET_NAME_SIZE];
 };
 
 void strider_manager_cleanup(void);
