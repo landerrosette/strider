@@ -1,4 +1,4 @@
-SUBDIRS := strider_core cli
+SUBDIRS := strider cli
 
 .PHONY: all $(SUBDIRS) clean install
 
