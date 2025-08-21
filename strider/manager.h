@@ -7,6 +7,7 @@
 #include <linux/refcount.h>
 #include <linux/types.h>
 #include <strider/limits.h>
+#include <net/net_namespace.h>
 
 struct strider_ac;
 
@@ -25,15 +26,13 @@ struct strider_set {
     char name[STRIDER_MAX_SET_NAME_SIZE];
 };
 
-void strider_manager_cleanup(void);
+int strider_set_create(struct net *net, const char *name);
 
-int strider_set_create(const char *name);
+int strider_set_destroy(struct net *net, const char *name);
 
-int strider_set_destroy(const char *name);
+int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len);
 
-int strider_set_add_pattern(const char *set_name, const u8 *pattern, size_t len);
-
-int strider_set_del_pattern(const char *set_name, const u8 *pattern, size_t len);
+int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len);
 
 
 #endif //STRIDER_MANAGER_H
