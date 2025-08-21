@@ -9,16 +9,16 @@
 #include <linux/jhash.h>
 #include <linux/list.h>
 #include <linux/lockdep.h>
-#include <linux/rwsem.h>
 #include <linux/module.h>
 #include <linux/printk.h>
 #include <linux/rcupdate.h>
 #include <linux/refcount.h>
+#include <linux/rwsem.h>
 #include <linux/slab.h>
 #include <linux/string.h>
-#include <strider/limits.h>
-#include <net/netns/generic.h>
 #include <net/net_namespace.h>
+#include <net/netns/generic.h>
+#include <strider/limits.h>
 
 #include "ac.h"
 
@@ -46,7 +46,8 @@ static void strider_set_deinit_locked(struct strider_set *set) __must_hold(&set-
         strider_ac_schedule_destroy(ac);
 }
 
-static struct strider_set *strider_set_lookup_locked(struct strider_net *sn, const char *name) __must_hold(&sn->strider_sets_ht_lock) {
+static struct strider_set *strider_set_lookup_locked(struct strider_net *sn, const char *name)
+__must_hold(&sn->strider_sets_ht_lock) {
     u32 hash_key = jhash(name, strlen(name), 0);
     struct strider_set *set;
     hash_for_each_possible(sn->strider_sets_ht, set, node, hash_key) {
