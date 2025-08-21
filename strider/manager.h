@@ -8,6 +8,7 @@
 #include <linux/types.h>
 #include <strider/limits.h>
 #include <net/net_namespace.h>
+#include <linux/init.h>
 
 struct strider_ac;
 
@@ -25,6 +26,10 @@ struct strider_set {
     struct list_head patterns;
     char name[STRIDER_MAX_SET_NAME_SIZE];
 };
+
+int __init strider_manager_init(void);
+
+void strider_manager_exit(void);
 
 int strider_set_create(struct net *net, const char *name);
 

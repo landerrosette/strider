@@ -9,20 +9,31 @@
 #include <linux/jhash.h>
 #include <linux/list.h>
 #include <linux/lockdep.h>
-#include <linux/mutex.h>
+#include <linux/rwsem.h>
+#include <linux/module.h>
 #include <linux/printk.h>
 #include <linux/rcupdate.h>
 #include <linux/refcount.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <strider/limits.h>
+#include <net/netns/generic.h>
+#include <net/net_namespace.h>
 
 #include "ac.h"
 
 #define STRIDER_SETS_HASH_BITS 4
 
-static DEFINE_HASHTABLE(strider_sets_ht, STRIDER_SETS_HASH_BITS);
-static DEFINE_MUTEX(strider_sets_ht_lock);
+struct strider_net {
+    DECLARE_HASHTABLE(strider_sets_ht, STRIDER_SETS_HASH_BITS);
+    struct rw_semaphore strider_sets_ht_lock;
+};
+
+static unsigned int strider_net_id __read_mostly;
+
+static struct strider_net *strider_pernet(struct net *net) {
+    return net_generic(net, strider_net_id);
+}
 
 static void strider_set_deinit_locked(struct strider_set *set) __must_hold(&set->lock) {
     struct strider_pattern *entry, *tmp;
@@ -35,10 +46,10 @@ static void strider_set_deinit_locked(struct strider_set *set) __must_hold(&set-
         strider_ac_schedule_destroy(ac);
 }
 
-static struct strider_set *strider_set_lookup_locked(const char *name) __must_hold(&strider_sets_ht_lock) {
+static struct strider_set *strider_set_lookup_locked(struct strider_net *sn, const char *name) __must_hold(&sn->strider_sets_ht_lock) {
     u32 hash_key = jhash(name, strlen(name), 0);
     struct strider_set *set;
-    hash_for_each_possible(strider_sets_ht, set, node, hash_key) {
+    hash_for_each_possible(sn->strider_sets_ht, set, node, hash_key) {
         if (strcmp(set->name, name) == 0)
             return set;
     }
@@ -74,14 +85,11 @@ fail:
     goto out;
 }
 
-void strider_manager_cleanup(void) {
-    mutex_lock(&strider_sets_ht_lock);
+static void strider_sets_do_destroy_all_locked(struct strider_net *sn) __must_hold(&sn->strider_sets_ht_lock) {
     struct strider_set *set;
     struct hlist_node *tmp;
     int bkt;
-    hash_for_each_safe(strider_sets_ht, bkt, tmp, set, node) {
-        if (refcount_read(&set->refcount) > 0)
-            pr_warn("set '%s' is still in use\n", set->name);
+    hash_for_each_safe(sn->strider_sets_ht, bkt, tmp, set, node) {
         mutex_lock(&set->lock);
         hash_del(&set->node);
 
@@ -89,10 +97,38 @@ void strider_manager_cleanup(void) {
         mutex_unlock(&set->lock);
         kfree(set);
     }
-    mutex_unlock(&strider_sets_ht_lock);
 }
 
-int strider_set_create(const char *name) {
+static int __net_init strider_net_init(struct net *net) {
+    struct strider_net *sn = strider_pernet(net);
+    hash_init(sn->strider_sets_ht);
+    init_rwsem(&sn->strider_sets_ht_lock);
+    return 0;
+}
+
+static void __net_exit strider_net_exit(struct net *net) {
+    struct strider_net *sn = strider_pernet(net);
+    down_write(&sn->strider_sets_ht_lock);
+    strider_sets_do_destroy_all_locked(sn);
+    up_write(&sn->strider_sets_ht_lock);
+}
+
+static struct pernet_operations strider_net_ops = {
+    .init = strider_net_init,
+    .exit = strider_net_exit,
+    .id = &strider_net_id,
+    .size = sizeof(struct strider_net),
+};
+
+int __init strider_manager_init(void) {
+    return register_pernet_subsys(&strider_net_ops);
+}
+
+void strider_manager_exit(void) {
+    unregister_pernet_subsys(&strider_net_ops);
+}
+
+int strider_set_create(struct net *net, const char *name) {
     int ret = 0;
 
     struct strider_set *new_set = kzalloc(sizeof(*new_set), GFP_KERNEL);
@@ -105,15 +141,16 @@ int strider_set_create(const char *name) {
     mutex_init(&new_set->lock);
     refcount_set(&new_set->refcount, 0);
 
-    mutex_lock(&strider_sets_ht_lock);
-    struct strider_set *set = strider_set_lookup_locked(name);
+    struct strider_net *sn = strider_pernet(net);
+    down_write(&sn->strider_sets_ht_lock);
+    struct strider_set *set = strider_set_lookup_locked(sn, name);
     if (set) {
         ret = -EEXIST;
         goto fail;
     }
-    hash_add(strider_sets_ht, &new_set->node, jhash(name, strlen(name), 0));
+    hash_add(sn->strider_sets_ht, &new_set->node, jhash(name, strlen(name), 0));
 out_unlock:
-    mutex_unlock(&strider_sets_ht_lock);
+    up_write(&sn->strider_sets_ht_lock);
 
 out:
     return ret;
@@ -122,20 +159,21 @@ fail:
     goto out_unlock;
 }
 
-int strider_set_destroy(const char *name) {
-    mutex_lock(&strider_sets_ht_lock);
-    struct strider_set *set = strider_set_lookup_locked(name);
+int strider_set_destroy(struct net *net, const char *name) {
+    struct strider_net *sn = strider_pernet(net);
+    down_write(&sn->strider_sets_ht_lock);
+    struct strider_set *set = strider_set_lookup_locked(sn, name);
     if (!set) {
-        mutex_unlock(&strider_sets_ht_lock);
+        up_write(&sn->strider_sets_ht_lock);
         return -ENOENT;
     }
     if (refcount_read(&set->refcount) > 0) {
-        mutex_unlock(&strider_sets_ht_lock);
+        up_write(&sn->strider_sets_ht_lock);
         return -EBUSY;
     }
     mutex_lock(&set->lock);
     hash_del(&set->node);
-    mutex_unlock(&strider_sets_ht_lock);
+    up_write(&sn->strider_sets_ht_lock);
 
     strider_set_deinit_locked(set);
     mutex_unlock(&set->lock);
@@ -144,7 +182,7 @@ int strider_set_destroy(const char *name) {
     return 0;
 }
 
-int strider_set_add_pattern(const char *set_name, const u8 *pattern, size_t len) {
+int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len) {
     int ret = 0;
 
     struct strider_pattern *new_entry = kmalloc(struct_size(new_entry, data, len), GFP_KERNEL);
@@ -155,14 +193,15 @@ int strider_set_add_pattern(const char *set_name, const u8 *pattern, size_t len)
     memcpy(new_entry->data, pattern, len);
     new_entry->len = len;
 
-    mutex_lock(&strider_sets_ht_lock);
-    struct strider_set *set = strider_set_lookup_locked(set_name);
+    struct strider_net *sn = strider_pernet(net);
+    down_read(&sn->strider_sets_ht_lock);
+    struct strider_set *set = strider_set_lookup_locked(sn, set_name);
     if (!set) {
         ret = -ENOENT;
         goto fail_sets_ht_unlock;
     }
     mutex_lock(&set->lock);
-    mutex_unlock(&strider_sets_ht_lock);
+    up_read(&sn->strider_sets_ht_lock);
 
     const struct strider_pattern *entry;
     list_for_each_entry(entry, &set->patterns, list) {
@@ -185,24 +224,25 @@ fail_set_unlock:
     mutex_unlock(&set->lock);
     goto fail;
 fail_sets_ht_unlock:
-    mutex_unlock(&strider_sets_ht_lock);
+    up_read(&sn->strider_sets_ht_lock);
     goto fail;
 fail:
     kfree(new_entry);
     goto out;
 }
 
-int strider_set_del_pattern(const char *set_name, const u8 *pattern, size_t len) {
+int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len) {
     int ret = 0;
 
-    mutex_lock(&strider_sets_ht_lock);
-    struct strider_set *set = strider_set_lookup_locked(set_name);
+    struct strider_net *sn = strider_pernet(net);
+    down_read(&sn->strider_sets_ht_lock);
+    struct strider_set *set = strider_set_lookup_locked(sn, set_name);
     if (!set) {
         ret = -ENOENT;
         goto fail;
     }
     mutex_lock(&set->lock);
-    mutex_unlock(&strider_sets_ht_lock);
+    up_read(&sn->strider_sets_ht_lock);
 
     ret = -ENOENT;
     struct strider_pattern *entry, *tmp;
@@ -225,6 +265,6 @@ fail_list_add:
     mutex_unlock(&set->lock);
     goto out;
 fail:
-    mutex_unlock(&strider_sets_ht_lock);
+    up_read(&sn->strider_sets_ht_lock);
     goto out;
 }
