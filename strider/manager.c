@@ -128,6 +128,7 @@ int __init strider_manager_init(void) {
 
 void strider_manager_exit(void) {
     unregister_pernet_subsys(&strider_net_ops);
+    rcu_barrier();
 }
 
 int strider_set_create(struct net *net, const char *name) {
