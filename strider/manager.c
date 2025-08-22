@@ -95,6 +95,7 @@ static void strider_sets_do_destroy_all_locked(struct strider_net *sn) __must_ho
         mutex_lock(&set->lock);
         hash_del(&set->node);
 
+        pr_debug("set '%s' being destroyed, refcount=%u\n", set->name, refcount_read(&set->refcount));
         strider_set_deinit_locked(set);
         mutex_unlock(&set->lock);
         kfree(set);
