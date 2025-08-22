@@ -218,8 +218,8 @@ int strider_ac_add_pattern(struct strider_ac *ac, const u8 *pattern, size_t len,
 }
 
 int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask) {
-    LIST_HEAD(queue);
     int ret = 0;
+    LIST_HEAD(queue);
     list_add_tail(&ac->root->traversal_list, &queue);
     while (!list_empty(&queue)) {
         struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, traversal_list);

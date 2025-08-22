@@ -81,6 +81,7 @@ static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&s
 
 out:
     return ret;
+
 fail:
     strider_ac_schedule_destroy(new_ac);
     goto out;
@@ -159,6 +160,7 @@ int strider_set_create(struct net *net, const char *name) {
 
 out:
     return ret;
+
 fail_unlock_and_kfree:
     up_write(&sn->strider_sets_ht_lock);
     kfree(new_set);
@@ -228,6 +230,7 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
 
 out:
     return ret;
+
 fail_list_del:
     list_del(&new_entry->list);
 fail_set_unlock:
@@ -269,6 +272,7 @@ int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pat
 
 out:
     return ret;
+
 fail_list_add:
     list_add(&entry->list, &set->patterns);
     mutex_unlock(&set->lock);
