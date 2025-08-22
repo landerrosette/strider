@@ -1,15 +1,15 @@
 #include "ac.h"
 
+#include <linux/bug.h>
+#include <linux/container_of.h>
 #include <linux/err.h>
 #include <linux/errno.h>
-#include <linux/container_of.h>
 #include <linux/list.h>
 #include <linux/rcupdate.h>
 #include <linux/slab.h>
 #include <linux/sort.h>
 #include <linux/types.h>
 #include <linux/workqueue.h>
-#include <linux/bug.h>
 
 // Represents a finalized, read-only transition.
 struct strider_ac_transition {

@@ -3,23 +3,23 @@
 #include "netlink.h"
 
 #include <linux/errno.h>
+#include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/printk.h>
 #include <net/genetlink.h>
 #include <strider/protocol.h>
-#include <linux/init.h>
 
 #include "manager.h"
 
 static const struct nla_policy strider_set_policy[STRIDER_ATTR_MAX + 1] = {
-    [0] = { .strict_start_type = 1 },
-    [STRIDER_ATTR_SET_NAME] = { .type = NLA_NUL_STRING, .len = STRIDER_MAX_SET_NAME_SIZE - 1 },
+    [0] = {.strict_start_type = 1},
+    [STRIDER_ATTR_SET_NAME] = {.type = NLA_NUL_STRING, .len = STRIDER_MAX_SET_NAME_SIZE - 1},
 };
 
 static const struct nla_policy strider_pattern_policy[STRIDER_ATTR_MAX + 1] = {
-    [0] = { .strict_start_type = 1 },
-    [STRIDER_ATTR_SET_NAME] = { .type = NLA_NUL_STRING, .len = STRIDER_MAX_SET_NAME_SIZE - 1 },
+    [0] = {.strict_start_type = 1},
+    [STRIDER_ATTR_SET_NAME] = {.type = NLA_NUL_STRING, .len = STRIDER_MAX_SET_NAME_SIZE - 1},
     [STRIDER_ATTR_PATTERN] = NLA_POLICY_RANGE(NLA_BINARY, 1, STRIDER_MAX_PATTERN_SIZE),
 };
 
@@ -47,7 +47,8 @@ static int strider_nl_add_pattern_doit(struct sk_buff *skb, struct genl_info *in
     const char *set_name = nla_data(info->attrs[STRIDER_ATTR_SET_NAME]);
     if (*set_name == '\0')
         return -EINVAL;
-    return strider_set_add_pattern(genl_info_net(info), set_name, nla_data(info->attrs[STRIDER_ATTR_PATTERN]), nla_len(info->attrs[STRIDER_ATTR_PATTERN]));
+    return strider_set_add_pattern(genl_info_net(info), set_name, nla_data(info->attrs[STRIDER_ATTR_PATTERN]),
+                                   nla_len(info->attrs[STRIDER_ATTR_PATTERN]));
 }
 
 static int strider_nl_del_pattern_doit(struct sk_buff *skb, struct genl_info *info) {
@@ -56,7 +57,8 @@ static int strider_nl_del_pattern_doit(struct sk_buff *skb, struct genl_info *in
     const char *set_name = nla_data(info->attrs[STRIDER_ATTR_SET_NAME]);
     if (*set_name == '\0')
         return -EINVAL;
-    return strider_set_del_pattern(genl_info_net(info), set_name, nla_data(info->attrs[STRIDER_ATTR_PATTERN]), nla_len(info->attrs[STRIDER_ATTR_PATTERN]));
+    return strider_set_del_pattern(genl_info_net(info), set_name, nla_data(info->attrs[STRIDER_ATTR_PATTERN]),
+                                   nla_len(info->attrs[STRIDER_ATTR_PATTERN]));
 }
 
 static const struct genl_ops strider_nl_ops[] = {

@@ -4,8 +4,8 @@
 #include <linux/module.h>
 #include <linux/printk.h>
 
-#include "netlink.h"
 #include "manager.h"
+#include "netlink.h"
 
 static int __init strider_module_init(void) {
     int ret = strider_manager_init();
