@@ -2,13 +2,14 @@
 
 #include <linux/err.h>
 #include <linux/errno.h>
-#include <linux/kernel.h>
+#include <linux/container_of.h>
 #include <linux/list.h>
 #include <linux/rcupdate.h>
 #include <linux/slab.h>
 #include <linux/sort.h>
 #include <linux/types.h>
 #include <linux/workqueue.h>
+#include <linux/bug.h>
 
 // Represents a finalized, read-only transition.
 struct strider_ac_transition {
@@ -134,6 +135,7 @@ static int strider_ac_transitions_finalize(struct strider_ac_node *node, gfp_t g
             list_del(&trans->list);
             kfree(trans);
         }
+        BUG_ON(i != count);
         node->num_transitions = count;
         sort(node->transitions, count, sizeof(*node->transitions), strider_ac_transition_compare, NULL);
     }
@@ -234,7 +236,7 @@ int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask) {
     }
     strider_ac_failures_build(ac->root);
 out:
-    WARN_ON_ONCE(!list_empty(&queue));
+    BUG_ON(!list_empty(&queue));
     return ret;
 fail:
     struct strider_ac_node *node, *tmp;
