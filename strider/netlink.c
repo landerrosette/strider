@@ -108,3 +108,5 @@ int __init strider_netlink_init(void) {
 void strider_netlink_exit(void) {
     genl_unregister_family(&strider_nl_family);
 }
+
+MODULE_ALIAS_GENL_FAMILY(STRIDER_GENL_FAMILY_NAME);
