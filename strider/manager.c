@@ -132,10 +132,15 @@ void strider_manager_exit(void) {
 int strider_set_create(struct net *net, const char *name) {
     int ret = 0;
 
+    if (!try_module_get(THIS_MODULE)) {
+        ret = -ENODEV;
+        goto out;
+    }
+
     struct strider_set *new_set = kzalloc(sizeof(*new_set), GFP_KERNEL);
     if (!new_set) {
         ret = -ENOMEM;
-        goto out;
+        goto fail;
     }
     strscpy(new_set->name, name, STRIDER_MAX_SET_NAME_SIZE);
     INIT_LIST_HEAD(&new_set->patterns);
@@ -147,17 +152,19 @@ int strider_set_create(struct net *net, const char *name) {
     struct strider_set *set = strider_set_lookup_locked(sn, name);
     if (set) {
         ret = -EEXIST;
-        goto fail;
+        goto fail_unlock_and_kfree;
     }
     hash_add(sn->strider_sets_ht, &new_set->node, jhash(name, strlen(name), 0));
-out_unlock:
     up_write(&sn->strider_sets_ht_lock);
 
 out:
     return ret;
-fail:
+fail_unlock_and_kfree:
+    up_write(&sn->strider_sets_ht_lock);
     kfree(new_set);
-    goto out_unlock;
+fail:
+    module_put(THIS_MODULE);
+    goto out;
 }
 
 int strider_set_destroy(struct net *net, const char *name) {
@@ -179,6 +186,8 @@ int strider_set_destroy(struct net *net, const char *name) {
     strider_set_deinit_locked(set);
     mutex_unlock(&set->lock);
     kfree(set);
+
+    module_put(THIS_MODULE);
 
     return 0;
 }
@@ -226,7 +235,6 @@ fail_set_unlock:
     goto fail;
 fail_sets_ht_unlock:
     up_read(&sn->strider_sets_ht_lock);
-    goto fail;
 fail:
     kfree(new_entry);
     goto out;
