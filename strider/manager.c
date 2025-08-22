@@ -151,12 +151,12 @@ int strider_set_create(struct net *net, const char *name) {
 
     struct strider_net *sn = strider_pernet(net);
     down_write(&sn->strider_sets_ht_lock);
-    struct strider_set *set = strider_set_lookup_locked(sn, name);
+    struct strider_set *set = strider_set_lookup_locked(sn, new_set->name);
     if (set) {
         ret = -EEXIST;
         goto fail_unlock_and_kfree;
     }
-    hash_add(sn->strider_sets_ht, &new_set->node, jhash(name, strlen(name), 0));
+    hash_add(sn->strider_sets_ht, &new_set->node, jhash(new_set->name, strlen(new_set->name), 0));
     up_write(&sn->strider_sets_ht_lock);
 
 out:
