@@ -2,7 +2,9 @@
 
 #include <kunit/test.h>
 #include <linux/err.h>
+#include <linux/gfp.h>
 #include <linux/module.h>
+#include <linux/string.h>
 #include <linux/types.h>
 
 static struct strider_ac *strider_ac_build_from_patterns(const char *patterns[]) {
