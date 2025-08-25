@@ -1,31 +1,33 @@
-TARGET := striderctl
+PROGRAM := striderctl
+VERSION := 0.2.0
 SRCS := main.c
-OBJS := $(patsubst %.c, %.o, $(SRCS))
-DEPS := $(patsubst %.c, %.d, $(SRCS))
 
 CC := gcc
 CFLAGS ?= -Wall -Wextra -g -O2
-CPPFLAGS += -I../include $(shell pkg-config --cflags libnl-genl-3.0)
-LDLIBS := $(shell pkg-config --libs libnl-genl-3.0)
-
 PREFIX ?= /usr/local
 BINDIR := $(PREFIX)/sbin
 
+OBJS := $(patsubst %.c, %.o, $(SRCS))
+DEPS := $(patsubst %.c, %.d, $(SRCS))
+CPPFLAGS += -DPROGRAM="\"$(PROGRAM)\"" -DVERSION="\"$(VERSION)\""
+CPPFLAGS += -I../include $(shell pkg-config --cflags libnl-genl-3.0)
+LDLIBS := $(shell pkg-config --libs libnl-genl-3.0)
+
 .PHONY: all clean install
 
-all: $(TARGET)
+all: $(PROGRAM)
 
-$(TARGET): $(OBJS)
+$(PROGRAM): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@ -MMD -MP
 
 clean:
-	rm -f $(TARGET) $(OBJS) $(DEPS)
+	rm -f $(PROGRAM) $(OBJS) $(DEPS)
 
 install: all
 	install -d ${DESTDIR}$(BINDIR)
-	install -m 755 $(TARGET) ${DESTDIR}$(BINDIR)/
+	install -m 755 $(PROGRAM) ${DESTDIR}$(BINDIR)/
 
 -include $(DEPS)

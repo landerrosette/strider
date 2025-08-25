@@ -1,4 +1,4 @@
-SUBDIRS := strider cli
+SUBDIRS := strider striderctl
 
 .PHONY: all $(SUBDIRS) clean install
 
