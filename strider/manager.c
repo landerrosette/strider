@@ -58,14 +58,11 @@ __must_hold(&sn->strider_sets_ht_lock) {
 }
 
 static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&set->lock) {
-    int ret = 0;
-
     struct strider_ac *new_ac = strider_ac_init(GFP_KERNEL);
-    if (IS_ERR(new_ac)) {
-        ret = PTR_ERR(new_ac);
-        goto out;
-    }
+    if (IS_ERR(new_ac))
+        return PTR_ERR(new_ac);
     const struct strider_pattern *entry;
+    int ret;
     list_for_each_entry(entry, &set->patterns, list) {
         ret = strider_ac_add_pattern(new_ac, entry->data, entry->len, GFP_KERNEL);
         if (ret < 0)
@@ -74,17 +71,15 @@ static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&s
     ret = strider_ac_compile(new_ac, GFP_KERNEL);
     if (ret < 0)
         goto fail;
-
     struct strider_ac *old_ac = rcu_replace_pointer(set->ac, new_ac, lockdep_is_held(&set->lock));
     if (old_ac)
         strider_ac_schedule_destroy(old_ac);
 
-out:
     return ret;
 
 fail:
     strider_ac_schedule_destroy(new_ac);
-    goto out;
+    return ret;
 }
 
 static void strider_sets_do_destroy_all_locked(struct strider_net *sn) __must_hold(&sn->strider_sets_ht_lock) {
@@ -155,7 +150,7 @@ int strider_set_create(struct net *net, const char *name) {
     struct strider_set *set = strider_set_lookup_locked(sn, new_set->name);
     if (set) {
         ret = -EEXIST;
-        goto fail_unlock_and_kfree;
+        goto fail_unlock;
     }
     hash_add(sn->strider_sets_ht, &new_set->node, jhash(new_set->name, strlen(new_set->name), 0));
     up_write(&sn->strider_sets_ht_lock);
@@ -163,7 +158,7 @@ int strider_set_create(struct net *net, const char *name) {
 out:
     return ret;
 
-fail_unlock_and_kfree:
+fail_unlock:
     up_write(&sn->strider_sets_ht_lock);
     kfree(new_set);
 fail:
