@@ -228,6 +228,8 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
     ret = strider_set_refresh_ac_locked(set);
     if (ret < 0)
         goto fail_list_del;
+    pr_debug("set '%s': added pattern len=%zu data=%*ph\n", set->name, new_entry->len, (int) new_entry->len,
+             new_entry->data);
     mutex_unlock(&set->lock);
 
 out:
