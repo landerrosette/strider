@@ -16,7 +16,6 @@ struct strider_nl_connection {
 
 static int strider_nl_connect(struct strider_nl_connection *conn) {
     int ret = 0;
-
     conn->sock = nl_socket_alloc();
     if (!conn->sock) {
         ret = -NLE_NOMEM;
@@ -33,14 +32,13 @@ static int strider_nl_connect(struct strider_nl_connection *conn) {
     conn->family_id = ret;
     ret = 0;
 
-out:
     return ret;
 
 fail_sk_free:
     nl_socket_free(conn->sock);
 fail:
     fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(-ret));
-    goto out;
+    return ret;
 }
 
 static void strider_nl_disconnect(struct strider_nl_connection *conn) {
@@ -48,6 +46,7 @@ static void strider_nl_disconnect(struct strider_nl_connection *conn) {
 }
 
 static int get_error_in_response(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg) {
+    (void) nla;
     *(int *) arg = nl_syserr2nlerr(nlerr->error);
     return NL_STOP;
 }
@@ -55,62 +54,51 @@ static int get_error_in_response(struct sockaddr_nl *nla, struct nlmsgerr *nlerr
 static int strider_nl_send_cmd(struct strider_nl_connection *conn, uint8_t cmd,
                                int (*add_attrs_cb)(struct nl_msg *msg, void *data), void *cb_data) {
     int ret = 0;
-
     struct nl_msg *msg = nlmsg_alloc();
     if (!msg) {
-        ret = -ENOMEM;
-        goto fail;
+        ret = -NLE_NOMEM;
+        goto out;
     }
 
     if (!genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, conn->family_id, 0, NLM_F_REQUEST | NLM_F_ACK, cmd,
                      STRIDER_GENL_VERSION)) {
-        ret = -ENOMEM;
-        goto fail_msg_free;
+        ret = -NLE_NOMEM;
+        goto out_msg_free;
     }
 
     if (add_attrs_cb) {
         ret = add_attrs_cb(msg, cb_data);
         if (ret < 0)
-            goto fail_msg_free_nlerr;
+            goto out_msg_free;
     }
 
     struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
     if (!cb) {
-        ret = -ENOMEM;
-        goto fail_msg_free;
+        ret = -NLE_NOMEM;
+        goto out_msg_free;
     }
     int kernel_err = 0;
     nl_cb_err(cb, NL_CB_CUSTOM, get_error_in_response, &kernel_err);
 
     ret = nl_send_auto(conn->sock, msg);
     if (ret < 0)
-        goto fail_cb_put;
+        goto out_cb_put;
 
     ret = nl_recvmsgs(conn->sock, cb);
     if (kernel_err < 0) {
         fprintf(stderr, "%s: operation failed: %s\n", program_name, nl_geterror(-kernel_err));
-        ret = kernel_err;
+        ret = 0;
     } else if (ret < 0)
-        goto fail_cb_put;
+        goto out_cb_put;
 
 out_cb_put:
     nl_cb_put(cb);
 out_msg_free:
     nlmsg_free(msg);
 out:
+    if (ret < 0)
+        fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(-ret));
     return ret;
-
-fail_cb_put:
-    fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(-ret));
-    goto out_cb_put;
-fail_msg_free_nlerr:
-    fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(-ret));
-    goto out_msg_free;
-fail_msg_free:
-    nlmsg_free(msg);
-fail:
-    fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(nl_syserr2nlerr(-ret)));
-    goto out;
 }
 
 struct set_args {
@@ -122,11 +110,13 @@ static int add_attrs_set(struct nl_msg *msg, void *data) {
 }
 
 static int handle_create(struct strider_nl_connection *conn, int argc, char *argv[]) {
+    (void) argc;
     struct set_args args = {.name = argv[0]};
     return strider_nl_send_cmd(conn, STRIDER_CMD_CREATE_SET, add_attrs_set, &args);
 }
 
 static int handle_destroy(struct strider_nl_connection *conn, int argc, char *argv[]) {
+    (void) argc;
     struct set_args args = {.name = argv[0]};
     return strider_nl_send_cmd(conn, STRIDER_CMD_DESTROY_SET, add_attrs_set, &args);
 }
@@ -198,13 +188,12 @@ static void print_help(FILE *stream) {
 }
 
 int main(int argc, char *argv[]) {
-    int ret = 0;
-
     struct option long_options[] = {
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'v'},
         {}
     };
+    int ret = 0;
     int c = getopt_long(argc, argv, "hv", long_options, NULL);
     if (c != -1) {
         switch (c) {
@@ -216,14 +205,14 @@ int main(int argc, char *argv[]) {
                 goto out;
             case '?':
             default:
-                ret = -EINVAL;
+                ret = -1;
                 goto out_print;
         }
     }
 
     if (optind >= argc) {
         fprintf(stderr, "%s: missing command\n", program_name);
-        ret = -EINVAL;
+        ret = -1;
         goto out_print;
     }
     const char *command_name = argv[optind];
@@ -234,7 +223,7 @@ int main(int argc, char *argv[]) {
             if (remaining_argc < striderctl_commands[i].min_argc) {
                 fprintf(stderr, "%s: command '%s' requires at least %d argument(s)\n", program_name, command_name,
                         striderctl_commands[i].min_argc);
-                ret = -EINVAL;
+                ret = -1;
                 goto out_print;
             }
 
@@ -249,7 +238,7 @@ int main(int argc, char *argv[]) {
     }
     // loop did not end early
     fprintf(stderr, "%s: unknown command '%s'\n", program_name, command_name);
-    ret = -EINVAL;
+    ret = -1;
 
 out_print:
     fprintf(stderr, "Try '%s --help' for more information.\n", program_name);
