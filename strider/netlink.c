@@ -24,7 +24,7 @@ static const struct nla_policy strider_pattern_policy[STRIDER_ATTR_MAX + 1] = {
 };
 
 static int strider_nl_create_set_doit(struct sk_buff *skb, struct genl_info *info) {
-    if (!GENL_REQ_ATTR_CHECK(info, STRIDER_ATTR_SET_NAME))
+    if (GENL_REQ_ATTR_CHECK(info, STRIDER_ATTR_SET_NAME))
         return -EINVAL;
     const char *name = nla_data(info->attrs[STRIDER_ATTR_SET_NAME]);
     if (*name == '\0')
@@ -33,7 +33,7 @@ static int strider_nl_create_set_doit(struct sk_buff *skb, struct genl_info *inf
 }
 
 static int strider_nl_destroy_set_doit(struct sk_buff *skb, struct genl_info *info) {
-    if (!GENL_REQ_ATTR_CHECK(info, STRIDER_ATTR_SET_NAME))
+    if (GENL_REQ_ATTR_CHECK(info, STRIDER_ATTR_SET_NAME))
         return -EINVAL;
     const char *name = nla_data(info->attrs[STRIDER_ATTR_SET_NAME]);
     if (*name == '\0')
@@ -42,7 +42,7 @@ static int strider_nl_destroy_set_doit(struct sk_buff *skb, struct genl_info *in
 }
 
 static int strider_nl_add_pattern_doit(struct sk_buff *skb, struct genl_info *info) {
-    if (!GENL_REQ_ATTR_CHECK(info, STRIDER_ATTR_SET_NAME) || !GENL_REQ_ATTR_CHECK(info, STRIDER_ATTR_PATTERN))
+    if (GENL_REQ_ATTR_CHECK(info, STRIDER_ATTR_SET_NAME) || GENL_REQ_ATTR_CHECK(info, STRIDER_ATTR_PATTERN))
         return -EINVAL;
     const char *set_name = nla_data(info->attrs[STRIDER_ATTR_SET_NAME]);
     if (*set_name == '\0')
@@ -52,7 +52,7 @@ static int strider_nl_add_pattern_doit(struct sk_buff *skb, struct genl_info *in
 }
 
 static int strider_nl_del_pattern_doit(struct sk_buff *skb, struct genl_info *info) {
-    if (!GENL_REQ_ATTR_CHECK(info, STRIDER_ATTR_SET_NAME) || !GENL_REQ_ATTR_CHECK(info, STRIDER_ATTR_PATTERN))
+    if (GENL_REQ_ATTR_CHECK(info, STRIDER_ATTR_SET_NAME) || GENL_REQ_ATTR_CHECK(info, STRIDER_ATTR_PATTERN))
         return -EINVAL;
     const char *set_name = nla_data(info->attrs[STRIDER_ATTR_SET_NAME]);
     if (*set_name == '\0')
