@@ -10,8 +10,8 @@
 static struct strider_ac *strider_ac_build_from_patterns(const char *patterns[]) {
     struct strider_ac *ac = strider_ac_init(GFP_KERNEL);
     if (IS_ERR(ac))
-        goto out;
-    int ret = 0;
+        return ac;
+    int ret;
     for (int i = 0; patterns[i]; ++i) {
         ret = strider_ac_add_pattern(ac, (const u8 *) patterns[i], strlen(patterns[i]), GFP_KERNEL);
         if (ret < 0)
@@ -20,7 +20,6 @@ static struct strider_ac *strider_ac_build_from_patterns(const char *patterns[])
     ret = strider_ac_compile(ac, GFP_KERNEL);
     if (ret < 0)
         goto fail;
-out:
     return ac;
 fail:
     strider_ac_schedule_destroy(ac);

@@ -227,8 +227,13 @@ int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask) {
         struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, traversal_list);
         list_del(&node->traversal_list);
         ret = strider_ac_transitions_finalize(node, gfp_mask);
-        if (ret < 0)
-            goto fail;
+        if (ret < 0) {
+            struct strider_ac_node *tmp;
+            // clear the in-flight traversal queue
+            list_for_each_entry_safe(node, tmp, &queue, traversal_list)
+                list_del(&node->traversal_list);
+            goto out;
+        }
         for (size_t i = 0; i < node->num_transitions; ++i) {
             struct strider_ac_node *child = node->transitions[i].next;
             list_add_tail(&child->traversal_list, &queue);
@@ -238,12 +243,6 @@ int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask) {
 out:
     BUG_ON(!list_empty(&queue));
     return ret;
-fail:
-    struct strider_ac_node *node, *tmp;
-    // clear the in-flight traversal queue
-    list_for_each_entry_safe(node, tmp, &queue, traversal_list)
-        list_del(&node->traversal_list);
-    goto out;
 }
 
 void strider_ac_match_init(const struct strider_ac *ac, struct strider_ac_match_state *state) {
