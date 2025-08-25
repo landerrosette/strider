@@ -61,8 +61,8 @@ static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&s
     struct strider_ac *new_ac = strider_ac_init(GFP_KERNEL);
     if (IS_ERR(new_ac))
         return PTR_ERR(new_ac);
+    int ret = 0;
     const struct strider_pattern *entry;
-    int ret;
     list_for_each_entry(entry, &set->patterns, list) {
         ret = strider_ac_add_pattern(new_ac, entry->data, entry->len, GFP_KERNEL);
         if (ret < 0)
@@ -128,13 +128,10 @@ void strider_manager_exit(void) {
 }
 
 int strider_set_create(struct net *net, const char *name) {
+    if (!try_module_get(THIS_MODULE))
+        return -ENODEV;
+
     int ret = 0;
-
-    if (!try_module_get(THIS_MODULE)) {
-        ret = -ENODEV;
-        goto out;
-    }
-
     struct strider_set *new_set = kzalloc(sizeof(*new_set), GFP_KERNEL);
     if (!new_set) {
         ret = -ENOMEM;
@@ -155,7 +152,6 @@ int strider_set_create(struct net *net, const char *name) {
     hash_add(sn->strider_sets_ht, &new_set->node, jhash(new_set->name, strlen(new_set->name), 0));
     up_write(&sn->strider_sets_ht_lock);
 
-out:
     return ret;
 
 fail_unlock:
@@ -163,7 +159,7 @@ fail_unlock:
     kfree(new_set);
 fail:
     module_put(THIS_MODULE);
-    goto out;
+    return ret;
 }
 
 int strider_set_destroy(struct net *net, const char *name) {
@@ -192,13 +188,9 @@ int strider_set_destroy(struct net *net, const char *name) {
 }
 
 int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len) {
-    int ret = 0;
-
     struct strider_pattern *new_entry = kmalloc(struct_size(new_entry, data, len), GFP_KERNEL);
-    if (!new_entry) {
-        ret = -ENOMEM;
-        goto out;
-    }
+    if (!new_entry)
+        return -ENOMEM;
     memcpy(new_entry->data, pattern, len);
     new_entry->len = len;
 
@@ -206,17 +198,18 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
     down_read(&sn->strider_sets_ht_lock);
     struct strider_set *set = strider_set_lookup_locked(sn, set_name);
     if (!set) {
-        ret = -ENOENT;
-        goto fail_sets_ht_unlock;
+        up_read(&sn->strider_sets_ht_lock);
+        return -ENOENT;
     }
     mutex_lock(&set->lock);
     up_read(&sn->strider_sets_ht_lock);
 
+    int ret = 0;
     const struct strider_pattern *entry;
     list_for_each_entry(entry, &set->patterns, list) {
         if (entry->len == len && memcmp(entry->data, pattern, len) == 0) {
             ret = -EEXIST;
-            goto fail_set_unlock;
+            goto fail;
         }
     }
     list_add(&new_entry->list, &set->patterns);
@@ -227,56 +220,45 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
              new_entry->data);
     mutex_unlock(&set->lock);
 
-out:
     return ret;
 
 fail_list_del:
     list_del(&new_entry->list);
-fail_set_unlock:
-    mutex_unlock(&set->lock);
-    goto fail;
-fail_sets_ht_unlock:
-    up_read(&sn->strider_sets_ht_lock);
 fail:
+    mutex_unlock(&set->lock);
     kfree(new_entry);
-    goto out;
+    return ret;
 }
 
 int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len) {
-    int ret = 0;
-
     struct strider_net *sn = strider_pernet(net);
     down_read(&sn->strider_sets_ht_lock);
     struct strider_set *set = strider_set_lookup_locked(sn, set_name);
     if (!set) {
-        ret = -ENOENT;
-        goto fail;
+        up_read(&sn->strider_sets_ht_lock);
+        return -ENOENT;
     }
     mutex_lock(&set->lock);
     up_read(&sn->strider_sets_ht_lock);
 
-    ret = -ENOENT;
+    int ret = -ENOENT;
     struct strider_pattern *entry, *tmp;
     list_for_each_entry_safe(entry, tmp, &set->patterns, list) {
         if (entry->len == len && memcmp(entry->data, pattern, len) == 0) {
             list_del(&entry->list);
             ret = strider_set_refresh_ac_locked(set);
             if (ret < 0)
-                goto fail_list_add;
+                goto fail;
             kfree(entry);
             break;
         }
     }
     mutex_unlock(&set->lock);
 
-out:
     return ret;
 
-fail_list_add:
+fail:
     list_add(&entry->list, &set->patterns);
     mutex_unlock(&set->lock);
-    goto out;
-fail:
-    up_read(&sn->strider_sets_ht_lock);
-    goto out;
+    return ret;
 }
