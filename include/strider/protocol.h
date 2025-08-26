@@ -8,7 +8,7 @@
 #define STRIDER_GENL_VERSION 2
 
 // commands that can be sent over netlink
-enum {
+enum strider_cmd {
     STRIDER_CMD_UNSPEC,
     STRIDER_CMD_CREATE_SET,
     STRIDER_CMD_DESTROY_SET,
