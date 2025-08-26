@@ -1,10 +1,10 @@
+#include <ctype.h>
 #include <getopt.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
-#include <stdbool.h>
-#include <ctype.h>
 #include <netlink/netlink.h>
 #include <netlink/genl/ctrl.h>
 #include <netlink/genl/genl.h>
@@ -25,19 +25,15 @@ static int strider_nl_connect(struct strider_nl_connection *conn) {
         ret = -NLE_NOMEM;
         goto fail;
     }
-
     ret = genl_connect(conn->sock);
     if (ret < 0)
         goto fail_sk_free;
-
     ret = genl_ctrl_resolve(conn->sock, STRIDER_GENL_FAMILY_NAME);
     if (ret < 0)
         goto fail_sk_free;
     conn->family_id = ret;
     ret = 0;
-
     return ret;
-
 fail_sk_free:
     nl_socket_free(conn->sock);
 fail:
@@ -55,78 +51,21 @@ static int get_kernel_err(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void 
     return NL_STOP;
 }
 
-static int strider_nl_send_cmd_msg(struct strider_nl_connection *conn, struct nl_msg *msg) {
-    int ret = 0, kernel_err = 0;
-
+static int strider_nl_send_cmd_msg(struct strider_nl_connection *conn, struct nl_msg *msg, int *kernel_err) {
     struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
-    if (!cb) {
-        ret = -NLE_NOMEM;
-        goto out;
-    }
-    nl_cb_err(cb, NL_CB_CUSTOM, get_kernel_err, &kernel_err);
-
-    ret = nl_send_auto(conn->sock, msg);
+    if (!cb)
+        return -NLE_NOMEM;
+    nl_cb_err(cb, NL_CB_CUSTOM, get_kernel_err, kernel_err);
+    int ret = nl_send_auto(conn->sock, msg);
     if (ret < 0)
-        goto out_cb_put;
-
+        goto out;
     ret = nl_recvmsgs(conn->sock, cb);
     if (ret < 0)
-        goto out_cb_put;
-
-out_cb_put:
-    nl_cb_put(cb);
+        goto out;
 out:
-    if (ret < 0)
-        fprintf(stderr, "%s: %s: %s\n", program_name, kernel_err == 0 ? "netlink error" : "operation failed", nl_geterror(ret));
+    nl_cb_put(cb);
     return ret;
 }
-
-// static int handle_create(struct strider_nl_connection *conn, int argc, char *argv[]) {
-//     (void) argc;
-//     struct set_args args = {.name = argv[0]};
-//     return strider_nl_send_cmd(conn, STRIDER_CMD_CREATE_SET, add_attrs_set_cmd, &args);
-// }
-
-// static int handle_destroy(struct strider_nl_connection *conn, int argc, char *argv[]) {
-//     (void) argc;
-//     struct set_args args = {.name = argv[0]};
-//     return strider_nl_send_cmd(conn, STRIDER_CMD_DESTROY_SET, add_attrs_set_cmd, &args);
-// }
-
-// static int handle_add(struct strider_nl_connection *conn, int argc, char *argv[]);
-
-// static int handle_del(struct strider_nl_connection *conn, int argc, char *argv[]);
-
-// struct striderctl_option {
-//     const char *name;
-//     const char *description;
-//     char short_name;
-// };
-
-// #define OPTION_HELP \
-//     { \
-//         .name = "help", \
-//         .description = "Print this help information", \
-//         .short_name = 'h', \
-//     }
-
-// #define OPTION_HEX \
-//     { \
-//         .name = "hex", \
-//         .description = "Enable hexadecimal parsing mode for PATTERN", \
-//         .short_name = 0, \
-//     }
-
-// static const struct striderctl_option global_options[] = {
-//     OPTION_HELP,
-//     {
-//         .name = "version",
-//         .description = "Print version information",
-//         .short_name = 'v',
-//     },
-// };
-
-// #define NUM_GLOBAL_OPTIONS (sizeof(global_options) / sizeof(global_options[0]))
 
 struct strider_pattern {
     uint8_t data[STRIDER_MAX_PATTERN_SIZE];
@@ -134,9 +73,9 @@ struct strider_pattern {
 };
 
 static int parse_hex_pattern(const char *s, struct strider_pattern *pattern) {
-    int idx = 0;
+    size_t idx = 0;
     bool hex = false, literal = false;
-    for (int i = 0; i < strlen(s); ++idx) {
+    for (size_t i = 0; i < strlen(s); ++idx) {
         if (idx >= STRIDER_MAX_PATTERN_SIZE)
             return -NLE_INVAL;
 
@@ -186,59 +125,126 @@ static int parse_hex_pattern(const char *s, struct strider_pattern *pattern) {
 
 struct striderctl_command {
     const char *name;
-    const char *usage;
     const char *description;
     int (*handler)(int argc, char *argv[]);
 };
 
-static int do_create_destroy(int argc, char *argv[]) {
-    if (argc != 2) {
-        fprintf(stderr, "%s: too %s arguments for '%s'\n", program_name, argc < 2 ? "few" : "many", argv[0]);
-        return -1;
-    }
-    struct strider_nl_connection conn;
-    int ret = strider_nl_connect(&conn);
-    if (ret < 0)
-        return ret;
-    struct nl_msg *msg = nlmsg_alloc();
-    if (!msg) {
-        ret = -NLE_NOMEM;
-    }
-}
-
 static int do_create(int argc, char *argv[]);
+
 static int do_destroy(int argc, char *argv[]);
+
 static int do_add(int argc, char *argv[]);
+
 static int do_del(int argc, char *argv[]);
 
 static const struct striderctl_command all_commands[] = {
     {
         .name = "create",
-        .usage = "SET_NAME",
         .description = "Create a new pattern set",
         .handler = do_create,
     },
     {
         .name = "destroy",
-        .usage = "SET_NAME",
         .description = "Destroy an existing pattern set",
         .handler = do_destroy,
     },
     {
         .name = "add",
-        .usage = "SET_NAME [--hex] PATTERN",
         .description = "Add a pattern to a set",
         .handler = do_add,
     },
     {
         .name = "del",
-        .usage = "SET_NAME [--hex] PATTERN",
         .description = "Delete a pattern from a set",
         .handler = do_del,
     },
 };
 
 #define NUM_COMMANDS (sizeof(all_commands) / sizeof(all_commands[0]))
+
+static int do_create_destroy(int argc, char *argv[], enum strider_cmd cmd) {
+    struct option options[] = {
+        {"help", no_argument, NULL, 'h'},
+        {}
+    };
+    while (1) {
+        int c = getopt_long(argc, argv, "+h", options, NULL);
+        if (c == -1)
+            break;
+        switch (c) {
+            case 'h':
+                goto print_help;
+            case '?':
+                goto prompt_help;
+            default:
+                abort();
+        }
+    }
+    if (optind + 1 != argc) {
+        fprintf(stderr, "%s: too %s arguments for '%s'\n", program_name, optind + 1 < argc ? "many" : "few", argv[0]);
+        goto prompt_help;
+    }
+    const char *set_name = argv[optind];
+
+    struct strider_nl_connection conn;
+    int kernel_err = 0;
+    int ret = strider_nl_connect(&conn);
+    if (ret < 0)
+        goto out;
+    struct nl_msg *msg = nlmsg_alloc();
+    if (!msg) {
+        ret = -NLE_NOMEM;
+        goto out_disconnect;
+    }
+    if (!genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ, conn.family_id, 0, 0, cmd, STRIDER_GENL_VERSION)) {
+        ret = -NLE_NOMEM;
+        goto out_msg_free;
+    }
+    ret = nla_put_string(msg, STRIDER_ATTR_SET_NAME, set_name);
+    if (ret < 0)
+        goto out_msg_free;
+    ret = strider_nl_send_cmd_msg(&conn, msg, &kernel_err);
+    if (ret < 0)
+        goto out_msg_free;
+
+out_msg_free:
+    nlmsg_free(msg);
+out_disconnect:
+    strider_nl_disconnect(&conn);
+out:
+    if (ret < 0)
+        fprintf(stderr, "%s: %s: %s\n", program_name, kernel_err == 0 ? "netlink error" : "operation failed",
+                nl_geterror(ret));
+    return ret;
+
+print_help:
+    printf("%s %s [OPTIONS...] SET_NAME\n", program_name, argv[0]);
+
+    printf("\n");
+    printf("Options:\n");
+    printf("  -h, --help    Print this help information\n");
+
+    printf("\n");
+    printf("Arguments:\n");
+    printf("  SET_NAME    Pattern set name\n");
+
+    return 0;
+prompt_help:
+    fprintf(stderr, "Try '%s %s --help' for more information.\n", program_name, argv[0]);
+    return -1;
+}
+
+static int do_create(int argc, char *argv[]) {
+    return do_create_destroy(argc, argv, STRIDER_CMD_CREATE_SET);
+}
+
+static int do_destroy(int argc, char *argv[]) {
+    return do_create_destroy(argc, argv, STRIDER_CMD_DESTROY_SET);
+}
+
+static int do_add(int argc, char *argv[]) {}
+
+static int do_del(int argc, char *argv[]) {}
 
 int main(int argc, char *argv[]) {
     struct option options[] = {
@@ -268,7 +274,7 @@ int main(int argc, char *argv[]) {
     }
     const char *command_name = argv[optind];
     const struct striderctl_command *command = NULL;
-    for (int i = 0; i < NUM_COMMANDS; ++i) {
+    for (size_t i = 0; i < NUM_COMMANDS; ++i) {
         if (strcmp(command_name, all_commands[i].name) == 0) {
             command = &all_commands[i];
             break;
@@ -281,6 +287,7 @@ int main(int argc, char *argv[]) {
 
     argc -= optind;
     argv += optind;
+    optind = 1; // reset
     int ret = command->handler(argc, argv);
     if (ret < 0)
         return EXIT_FAILURE;
@@ -292,14 +299,14 @@ print_help:
 
     printf("\n");
     printf("Commands:\n");
-    int max_name_len = 0;
-    for (int i = 0; i < NUM_COMMANDS; ++i) {
-        int len = strlen(all_commands[i].name);
+    size_t max_name_len = 0;
+    for (size_t i = 0; i < NUM_COMMANDS; ++i) {
+        size_t len = strlen(all_commands[i].name);
         if (len > max_name_len)
             max_name_len = len;
     }
-    for (int i = 0; i < NUM_COMMANDS; ++i)
-        printf("  %-*s    %s\n", max_name_len, all_commands[i].name, all_commands[i].description);
+    for (size_t i = 0; i < NUM_COMMANDS; ++i)
+        printf("  %-*s    %s\n", (int) max_name_len, all_commands[i].name, all_commands[i].description);
 
     printf("\n");
     printf("Options:\n");
