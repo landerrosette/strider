@@ -46,12 +46,12 @@ static void strider_set_deinit_locked(struct strider_set *set) __must_hold(&set-
         strider_ac_schedule_destroy(ac);
 }
 
-static struct strider_set *strider_set_lookup_locked(struct strider_net *sn, const char *name)
+static struct strider_set *strider_set_lookup_locked(struct strider_net *sn, const char *set_name)
 __must_hold(&sn->strider_sets_ht_lock) {
-    u32 hash_key = jhash(name, strlen(name), 0);
+    u32 hash_key = jhash(set_name, strlen(set_name), 0);
     struct strider_set *set;
     hash_for_each_possible(sn->strider_sets_ht, set, node, hash_key) {
-        if (strcmp(set->name, name) == 0)
+        if (strcmp(set->name, set_name) == 0)
             return set;
     }
     return NULL;
@@ -127,7 +127,7 @@ void strider_manager_exit(void) {
     rcu_barrier();
 }
 
-int strider_set_create(struct net *net, const char *name) {
+int strider_set_create(struct net *net, const char *set_name) {
     if (!try_module_get(THIS_MODULE))
         return -ENODEV;
 
@@ -137,7 +137,7 @@ int strider_set_create(struct net *net, const char *name) {
         ret = -ENOMEM;
         goto fail;
     }
-    strscpy(new_set->name, name, STRIDER_MAX_SET_NAME_SIZE);
+    strscpy(new_set->name, set_name, STRIDER_MAX_SET_NAME_SIZE);
     INIT_LIST_HEAD(&new_set->patterns);
     mutex_init(&new_set->lock);
     refcount_set(&new_set->refcount, 0);
@@ -162,10 +162,10 @@ fail:
     return ret;
 }
 
-int strider_set_destroy(struct net *net, const char *name) {
+int strider_set_destroy(struct net *net, const char *set_name) {
     struct strider_net *sn = strider_pernet(net);
     down_write(&sn->strider_sets_ht_lock);
-    struct strider_set *set = strider_set_lookup_locked(sn, name);
+    struct strider_set *set = strider_set_lookup_locked(sn, set_name);
     if (!set) {
         up_write(&sn->strider_sets_ht_lock);
         return -ENOENT;
