@@ -61,8 +61,8 @@ static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&s
     struct strider_ac *new_ac = strider_ac_init(GFP_KERNEL);
     if (IS_ERR(new_ac))
         return PTR_ERR(new_ac);
-    int ret = 0;
     const struct strider_pattern *entry;
+    int ret = 0;
     list_for_each_entry(entry, &set->patterns, list) {
         ret = strider_ac_add_pattern(new_ac, entry->data, entry->len, GFP_KERNEL);
         if (ret < 0)
@@ -204,8 +204,8 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
     mutex_lock(&set->lock);
     up_read(&sn->strider_sets_ht_lock);
 
-    int ret = 0;
     const struct strider_pattern *entry;
+    int ret = 0;
     list_for_each_entry(entry, &set->patterns, list) {
         if (entry->len == len && memcmp(entry->data, pattern, len) == 0) {
             ret = -EEXIST;
@@ -241,8 +241,8 @@ int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pat
     mutex_lock(&set->lock);
     up_read(&sn->strider_sets_ht_lock);
 
-    int ret = -ENOENT;
     struct strider_pattern *entry, *tmp;
+    int ret = -ENOENT;
     list_for_each_entry_safe(entry, tmp, &set->patterns, list) {
         if (entry->len == len && memcmp(entry->data, pattern, len) == 0) {
             list_del(&entry->list);
