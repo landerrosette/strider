@@ -130,13 +130,13 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern) {
                 fprintf(stderr, "%s: invalid hex digit '%c'\n", program_name, *endptr);
                 return -1;
             }
-            pattern->data[idx++] = val;
+            pattern->data[idx] = val;
             if (s[i + 2] == ' ') // space included in the hex block
                 i += 3;
             else
                 i += 2;
         } else
-            pattern->data[idx++] = s[i++]; // the char is not part of hex data, so just copy
+            pattern->data[idx] = s[i++]; // the char is not part of hex data, so just copy
     }
     pattern->len = idx;
     return 0;
