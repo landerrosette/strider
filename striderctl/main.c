@@ -124,12 +124,12 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern) {
             }
         }
     }
-    if (idx == 0) {
-        fprintf(stderr, "%s: PATTERN cannot be empty\n", program_name);
-        return -1;
-    }
     if (hex_mode) {
         fprintf(stderr, "%s: unterminated hex block, missing closing '|'\n", program_name);
+        return -1;
+    }
+    if (idx == 0) {
+        fprintf(stderr, "%s: PATTERN cannot be empty\n", program_name);
         return -1;
     }
     pattern->len = idx;
