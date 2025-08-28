@@ -275,15 +275,18 @@ struct strider_set *strider_set_get(struct net *net, const char *set_name) {
     up_read(&sn->strider_sets_ht_lock);
     return set;
 }
+
 EXPORT_SYMBOL_GPL(strider_set_get);
 
 void strider_set_put(struct strider_set *set) {
     if (set)
         refcount_dec(&set->refcount);
 }
+
 EXPORT_SYMBOL_GPL(strider_set_put);
 
-bool strider_set_match(const struct strider_set *set, const struct sk_buff *skb, unsigned int offset, unsigned int len) {
+bool strider_set_match(const struct strider_set *set, const struct sk_buff *skb, unsigned int offset,
+                       unsigned int len) {
     rcu_read_lock();
     struct strider_ac *ac = rcu_dereference(set->ac);
     bool ret = false;
@@ -292,21 +295,21 @@ bool strider_set_match(const struct strider_set *set, const struct sk_buff *skb,
 
     struct skb_seq_state skb_state;
     skb_prepare_seq_read((struct sk_buff *) skb, offset, offset + len, &skb_state);
-    unsigned int consumed = 0, frag_len;
-    const u8 *frag;
     struct strider_ac_match_state ac_state;
     strider_ac_match_init(ac, &ac_state);
-    while ((frag_len = skb_seq_read(consumed, &frag, &skb_state)) > 0) {
+    const u8 *frag;
+    for (unsigned int consumed = 0, frag_len; (frag_len = skb_seq_read(consumed, &frag, &skb_state)) > 0;
+         consumed += frag_len) {
         ret = strider_ac_match_next(&ac_state, frag, frag_len);
         if (ret) {
             skb_abort_seq_read(&skb_state);
             break;
         }
-        consumed += frag_len;
     }
 
 out:
     rcu_read_unlock();
     return ret;
 }
+
 EXPORT_SYMBOL_GPL(strider_set_match);
