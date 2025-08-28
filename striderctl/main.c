@@ -237,7 +237,7 @@ static int do_create_destroy(int argc, char *argv[], enum strider_cmd nl_cmd) {
         {}
     };
     while (1) {
-        int c = getopt_long(argc, argv, "+:h", options, NULL);
+        int c = getopt_long(argc, argv, ":h", options, NULL);
         if (c == -1)
             break;
         switch (c) {
@@ -303,12 +303,14 @@ static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd) {
         {}
     };
     while (1) {
-        int c = getopt_long(argc, argv, "+:h", options, NULL);
-        if (c == -1 || c == 0)
+        int c = getopt_long(argc, argv, ":h", options, NULL);
+        if (c == -1)
             break;
         switch (c) {
             case 'h':
                 goto print_help;
+            case 0:
+                break;
             case '?':
                 print_opt_err(argv);
                 return -1;
