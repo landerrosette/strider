@@ -19,6 +19,9 @@
 #include <net/net_namespace.h>
 #include <net/netns/generic.h>
 #include <strider/limits.h>
+#include <linux/skbuff.h>
+#include <linux/types.h>
+#include <linux/export.h>
 
 #include "ac.h"
 
@@ -262,3 +265,44 @@ fail:
     mutex_unlock(&set->lock);
     return ret;
 }
+
+struct strider_set *strider_set_get(struct net *net, const char *set_name) {
+    struct strider_net *sn = strider_pernet(net);
+    down_read(&sn->strider_sets_ht_lock);
+    struct strider_set *set = strider_set_lookup_locked(sn, set_name);
+    if (set)
+        refcount_inc(&set->refcount);
+    up_read(&sn->strider_sets_ht_lock);
+    return set;
+}
+EXPORT_SYMBOL_GPL(strider_set_get);
+
+void strider_set_put(struct strider_set *set) {
+    if (set)
+        refcount_dec(&set->refcount);
+}
+EXPORT_SYMBOL_GPL(strider_set_put);
+
+bool strider_set_match(const struct strider_set *set, const struct sk_buff *skb, unsigned int offset, unsigned int len) {
+    rcu_read_lock();
+    struct strider_ac *ac = rcu_dereference(set->ac);
+    bool ret = false;
+    if (unlikely(!ac))
+        goto out;
+    struct skb_seq_state skb_state;
+    skb_prepare_seq_read((struct sk_buff *) skb, offset, offset + len, &skb_state);
+    unsigned int consumed = 0, chunk_len;
+    const u8 *chunk_data;
+    struct strider_ac_match_state ac_state;
+    strider_ac_match_init(ac, &ac_state);
+    while ((chunk_len = skb_seq_read(consumed, &chunk_data, &skb_state)) != 0) {
+        ret = strider_ac_match_next(&ac_state, chunk_data, chunk_len);
+        if (ret)
+            break;
+        consumed += chunk_len;
+    }
+out:
+    rcu_read_unlock();
+    return ret;
+}
+EXPORT_SYMBOL_GPL(strider_set_match);
