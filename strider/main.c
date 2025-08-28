@@ -19,7 +19,7 @@ out:
     return ret;
 fail:
     strider_manager_exit();
-    goto out;
+    return ret;
 }
 
 static void __exit strider_module_exit(void) {
