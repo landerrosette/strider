@@ -4,11 +4,11 @@
 #include <linux/module.h>
 #include <linux/printk.h>
 
-#include "manager.h"
+#include "core.h"
 #include "netlink.h"
 
 static int __init strider_module_init(void) {
-    int ret = strider_manager_init();
+    int ret = strider_core_init();
     if (ret < 0)
         goto out;
     ret = strider_netlink_init();
@@ -18,13 +18,13 @@ static int __init strider_module_init(void) {
 out:
     return ret;
 fail:
-    strider_manager_exit();
+    strider_core_exit();
     return ret;
 }
 
 static void __exit strider_module_exit(void) {
     strider_netlink_exit();
-    strider_manager_exit();
+    strider_core_exit();
     pr_debug("module unloaded\n");
 }
 

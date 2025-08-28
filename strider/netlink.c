@@ -10,7 +10,7 @@
 #include <net/genetlink.h>
 #include <strider/protocol.h>
 
-#include "manager.h"
+#include "core.h"
 
 static const struct nla_policy strider_set_policy[STRIDER_ATTR_MAX + 1] = {
     [0] = {.strict_start_type = 1},

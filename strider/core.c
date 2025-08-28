@@ -1,6 +1,6 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include "manager.h"
+#include "core.h"
 
 #include <linux/compiler.h>
 #include <linux/err.h>
@@ -118,11 +118,11 @@ static struct pernet_operations strider_net_ops = {
     .size = sizeof(struct strider_net),
 };
 
-int __init strider_manager_init(void) {
+int __init strider_core_init(void) {
     return register_pernet_subsys(&strider_net_ops);
 }
 
-void strider_manager_exit(void) {
+void strider_core_exit(void) {
     unregister_pernet_subsys(&strider_net_ops);
     rcu_barrier();
 }
