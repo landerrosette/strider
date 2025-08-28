@@ -78,26 +78,49 @@ static int validate_set_name(const char *set_name) {
 
 static int parse_hex_string(const char *s, struct strider_pattern *pattern) {
     size_t idx = 0;
-    bool hex_mode = false;
+    bool hex_flag = false, literal_flag = false;
     size_t len = strlen(s);
-    for (size_t i = 0; i < len;) {
+    if (len == 0) {
+        fprintf(stderr, "%s: PATTERN cannot be empty\n", program_name);
+        return -1;
+    }
+    for (size_t i = 0; i < len; ++idx) {
         if (idx >= STRIDER_MAX_PATTERN_SIZE) {
             fprintf(stderr, "%s: PATTERN too long\n", program_name);
             return -1;
         }
-        if (s[i] == '|') {
-            hex_mode = !hex_mode;
-            ++i;
-            continue;
+        if (s[i] == '\\' && !hex_flag) {
+            literal_flag = true;
+        } else if (s[i] == '\\') {
+            fprintf(stderr, "%s: cannot include literals in hex data\n", program_name);
+            return -1;
+        } else if (s[i] == '|') {
+            hex_flag = !hex_flag;
+            if (hex_flag) {
+                while (s[i + 1] == ' ')
+                    ++i; // get past any initial whitespace just after the '|'
+            }
+            if (i + 1 >= len)
+                break;
+            else
+                ++i;
         }
 
-        if (hex_mode) {
-            if (isspace(s[i])) {
-                ++i;
-                continue;
-            }
+        if (literal_flag) {
             if (i + 1 >= len) {
-                fprintf(stderr, "%s: unterminated hex block, missing closing '|'\n", program_name);
+                fprintf(stderr, "%s: bad literal placement at end of string\n", program_name);
+                return -1;
+            }
+            pattern->data[idx] = s[i + 1];
+            i += 2;
+            literal_flag = false;
+        } else if (hex_flag) {
+            if (i + 1 >= len) {
+                fprintf(stderr, "%s: odd number of hex digits\n", program_name);
+                return -1;
+            }
+            if (i + 2 >= len) {
+                fprintf(stderr, "%s: invalid hex block\n", program_name);
                 return -1;
             }
             char xits[3] = {s[i], s[i + 1], '\0'};
@@ -108,29 +131,12 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern) {
                 return -1;
             }
             pattern->data[idx++] = val;
-            i += 2;
-        } else {
-            if (s[i] == '\\') {
-                // escape sequence
-                if (i + 1 >= len) {
-                    fprintf(stderr, "%s: dangling escape character\n", program_name);
-                    return -1;
-                }
-                pattern->data[idx++] = s[i + 1];
+            if (s[i + 2] == ' ') // space included in the hex block
+                i += 3;
+            else
                 i += 2;
-            } else {
-                // regular char
-                pattern->data[idx++] = s[i++];
-            }
-        }
-    }
-    if (hex_mode) {
-        fprintf(stderr, "%s: unterminated hex block, missing closing '|'\n", program_name);
-        return -1;
-    }
-    if (idx == 0) {
-        fprintf(stderr, "%s: PATTERN cannot be empty\n", program_name);
-        return -1;
+        } else
+            pattern->data[idx++] = s[i++]; // the char is not part of hex data, so just copy
     }
     pattern->len = idx;
     return 0;
