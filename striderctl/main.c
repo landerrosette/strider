@@ -197,7 +197,8 @@ out:
     return ret;
 }
 
-static int strider_nl_do_cmd(enum strider_cmd nl_cmd, int (*cb_add_attrs[])(struct nl_msg *msg, const void *data), const void *cb_data[]) {
+static int strider_nl_do_cmd(enum strider_cmd nl_cmd, int (*cb_add_attrs[])(struct nl_msg *msg, const void *data),
+                             const void *cb_data[]) {
     struct strider_nl_connection conn;
     int ret = strider_nl_connect(&conn);
     int kernel_err = 0;
