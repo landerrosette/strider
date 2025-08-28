@@ -31,4 +31,4 @@ static void __exit strider_module_exit(void) {
 module_init(strider_module_init);
 module_exit(strider_module_exit);
 
-MODULE_LICENSE("Dual MIT/GPL");
+MODULE_LICENSE("GPL");
