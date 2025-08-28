@@ -67,62 +67,6 @@ out:
     return ret;
 }
 
-struct strider_pattern {
-    uint8_t data[STRIDER_MAX_PATTERN_SIZE];
-    size_t len;
-};
-
-static int parse_hex_pattern(const char *s, struct strider_pattern *pattern) {
-    size_t idx = 0;
-    bool hex = false, literal = false;
-    for (size_t i = 0; i < strlen(s); ++idx) {
-        if (idx >= STRIDER_MAX_PATTERN_SIZE)
-            return -NLE_INVAL;
-
-        if (s[i] == '\\' && !hex)
-            literal = true;
-        else if (s[i] == '\\')
-            return -NLE_INVAL;
-        else if (s[i] == '|') {
-            hex = !hex;
-            if (i + 1 >= strlen(s))
-                break;
-            else
-                ++i;
-        }
-
-        if (literal) {
-            if (i + 1 >= strlen(s))
-                return -NLE_INVAL;
-            pattern->data[idx] = s[i + 1];
-            i += 2;
-            literal = false;
-        } else if (hex) {
-            if (isspace(s[i])) {
-                ++i;
-                continue;
-            }
-            if (s[i] == '|') {
-                hex = false;
-                ++i;
-                continue;
-            }
-            if (i + 1 >= strlen(s) || !isxdigit(s[i]) || !isxdigit(s[i + 1]))
-                return -NLE_INVAL;
-
-            char hextmp[3] = {s[i], s[i + 1], '\0'};
-            unsigned int schar;
-            if (sscanf(hextmp, "%x", &schar) != 1)
-                return -NLE_INVAL;
-            pattern->data[idx] = schar;
-            i += 2;
-        } else
-            pattern->data[idx] = s[i++];
-    }
-    pattern->len = idx;
-    return 0;
-}
-
 struct striderctl_command {
     const char *name;
     const char *description;
@@ -130,11 +74,8 @@ struct striderctl_command {
 };
 
 static int do_create(int argc, char *argv[]);
-
 static int do_destroy(int argc, char *argv[]);
-
 static int do_add(int argc, char *argv[]);
-
 static int do_del(int argc, char *argv[]);
 
 static const struct striderctl_command all_commands[] = {
@@ -162,33 +103,54 @@ static const struct striderctl_command all_commands[] = {
 
 #define NUM_COMMANDS (sizeof(all_commands) / sizeof(all_commands[0]))
 
-static int do_create_destroy(int argc, char *argv[], enum strider_cmd cmd) {
+static int validate_set_name(const char *set_name) {
+    size_t len = strlen(set_name);
+    if (len > STRIDER_MAX_SET_NAME_SIZE - 1) {
+        fprintf(stderr, "%s: SET_NAME too long\n", program_name);
+        return -1;
+    }
+    if (len == 0) {
+        fprintf(stderr, "%s: SET_NAME cannot be empty\n", program_name);
+        return -1;
+    }
+    return 0;
+}
+
+static int do_create_destroy(int argc, char *argv[], enum strider_cmd nl_cmd) {
     struct option options[] = {
         {"help", no_argument, NULL, 'h'},
         {}
     };
     while (1) {
-        int c = getopt_long(argc, argv, "+h", options, NULL);
+        int c = getopt_long(argc, argv, "+:h", options, NULL);
         if (c == -1)
             break;
         switch (c) {
             case 'h':
                 goto print_help;
             case '?':
-                goto prompt_help;
+                if (optopt)
+                    fprintf(stderr, "%s: invalid option -- '%c'\n", program_name, optopt);
+                else
+                    fprintf(stderr, "%s: unrecognized option '%s'\n", program_name, argv[optind - 1]);
+                return -1;
             default:
                 abort();
         }
     }
     if (optind + 1 != argc) {
-        fprintf(stderr, "%s: too %s arguments for '%s'\n", program_name, optind + 1 < argc ? "many" : "few", argv[0]);
-        goto prompt_help;
+        fprintf(stderr, "%s: too %s arguments\n", program_name, optind + 1 < argc ? "many" : "few");
+        return -1;
     }
     const char *set_name = argv[optind];
 
+    int ret = validate_set_name(set_name);
+    if (ret < 0)
+        return ret;
+
     struct strider_nl_connection conn;
     int kernel_err = 0;
-    int ret = strider_nl_connect(&conn);
+    ret = strider_nl_connect(&conn);
     if (ret < 0)
         goto out;
     struct nl_msg *msg = nlmsg_alloc();
@@ -196,7 +158,7 @@ static int do_create_destroy(int argc, char *argv[], enum strider_cmd cmd) {
         ret = -NLE_NOMEM;
         goto out_disconnect;
     }
-    if (!genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ, conn.family_id, 0, 0, cmd, STRIDER_GENL_VERSION)) {
+    if (!genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ, conn.family_id, 0, 0, nl_cmd, STRIDER_GENL_VERSION)) {
         ret = -NLE_NOMEM;
         goto out_msg_free;
     }
@@ -226,12 +188,9 @@ print_help:
 
     printf("\n");
     printf("Arguments:\n");
-    printf("  SET_NAME    Pattern set name\n");
+    printf("  SET_NAME    The unique name of the pattern set\n");
 
     return 0;
-prompt_help:
-    fprintf(stderr, "Try '%s %s --help' for more information.\n", program_name, argv[0]);
-    return -1;
 }
 
 static int do_create(int argc, char *argv[]) {
@@ -242,9 +201,183 @@ static int do_destroy(int argc, char *argv[]) {
     return do_create_destroy(argc, argv, STRIDER_CMD_DESTROY_SET);
 }
 
-static int do_add(int argc, char *argv[]) {}
+struct strider_pattern {
+    uint8_t data[STRIDER_MAX_PATTERN_SIZE];
+    size_t len;
+};
 
-static int do_del(int argc, char *argv[]) {}
+static int parse_hex_string(const char *s, struct strider_pattern *pattern) {
+    size_t idx = 0;
+    bool hex_mode = false;
+    size_t len = strlen(s);
+    for (size_t i = 0; i < len;) {
+        if (idx >= STRIDER_MAX_PATTERN_SIZE) {
+            fprintf(stderr, "%s: PATTERN too long\n", program_name);
+            return -1;
+        }
+        if (s[i] == '|') {
+            hex_mode = !hex_mode;
+            ++i;
+            continue;
+        }
+
+        if (hex_mode) {
+            if (isspace(s[i])) {
+                ++i;
+                continue;
+            }
+            if (i + 1 >= len) {
+                fprintf(stderr, "%s: odd number of hex digits\n", program_name);
+                return -1;
+            }
+            char xits[3] = {s[i], s[i + 1], '\0'};
+            char *endptr;
+            unsigned long val = strtoul(xits, &endptr, 16);
+            if (endptr != xits + 2) {
+                fprintf(stderr, "%s: invalid hex digit '%c'\n", program_name, *endptr);
+                return -1;
+            }
+            pattern->data[idx++] = val;
+            i += 2;
+        } else {
+            if (s[i] == '\\') {
+                // escape sequence
+                if (i + 1 >= len) {
+                    fprintf(stderr, "%s: dangling escape character\n", program_name);
+                    return -1;
+                }
+                pattern->data[idx++] = s[i + 1];
+                i += 2;
+            } else {
+                // regular char
+                pattern->data[idx++] = s[i++];
+            }
+        }
+    }
+    if (idx == 0) {
+        fprintf(stderr, "%s: PATTERN cannot be empty\n", program_name);
+        return -1;
+    }
+    if (hex_mode) {
+        fprintf(stderr, "%s: unterminated hex block, missing closing '|'\n", program_name);
+        return -1;
+    }
+    pattern->len = idx;
+    return 0;
+}
+
+static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd) {
+    int use_hex = false;
+
+    struct option options[] = {
+        {"help", no_argument, NULL, 'h'},
+        {"hex", no_argument, &use_hex, true},
+        {}
+    };
+    while (1) {
+        int c = getopt_long(argc, argv, "+:h", options, NULL);
+        if (c == -1 || c == 0)
+            break;
+        switch (c) {
+            case 'h':
+                goto print_help;
+            case '?':
+                if (optopt)
+                    fprintf(stderr, "%s: invalid option -- '%c'\n", program_name, optopt);
+                else
+                    fprintf(stderr, "%s: unrecognized option '%s'\n", program_name, argv[optind - 1]);
+                return -1;
+            default:
+                abort();
+        }
+    }
+    if (optind + 2 != argc) {
+        fprintf(stderr, "%s: too %s arguments\n", program_name, optind + 2 < argc ? "many" : "few");
+        return -1;
+    }
+    const char *set_name = argv[optind];
+    const char *pattern_str = argv[optind + 1];
+
+    int ret = validate_set_name(set_name);
+    if (ret < 0)
+        return ret;
+    struct strider_pattern pattern = {};
+    if (use_hex) {
+        ret = parse_hex_string(pattern_str, &pattern);
+        if (ret < 0)
+            return ret;
+    } else {
+        size_t len = strlen(pattern_str);
+        if (len > STRIDER_MAX_PATTERN_SIZE) {
+            fprintf(stderr, "%s: PATTERN too long\n", program_name);
+            return -1;
+        }
+        if (len == 0) {
+            fprintf(stderr, "%s: PATTERN cannot be empty\n", program_name);
+            return -1;
+        }
+        memcpy(pattern.data, pattern_str, len);
+        pattern.len = len;
+    }
+
+    struct strider_nl_connection conn;
+    int kernel_err = 0;
+    ret = strider_nl_connect(&conn);
+    if (ret < 0)
+        goto out;
+    struct nl_msg *msg = nlmsg_alloc();
+    if (!msg) {
+        ret = -NLE_NOMEM;
+        goto out_disconnect;
+    }
+    if (!genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ, conn.family_id, 0, 0, nl_cmd, STRIDER_GENL_VERSION)) {
+        ret = -NLE_NOMEM;
+        goto out_msg_free;
+    }
+    ret = nla_put_string(msg, STRIDER_ATTR_SET_NAME, set_name);
+    if (ret < 0)
+        goto out_msg_free;
+    ret = nla_put(msg, STRIDER_ATTR_PATTERN, pattern.len, pattern.data);
+    if (ret < 0)
+        goto out_msg_free;
+    ret = strider_nl_send_cmd_msg(&conn, msg, &kernel_err);
+    if (ret < 0)
+        goto out_msg_free;
+
+out_msg_free:
+    nlmsg_free(msg);
+out_disconnect:
+    strider_nl_disconnect(&conn);
+out:
+    if (ret < 0)
+        fprintf(stderr, "%s: %s: %s\n", program_name, kernel_err == 0 ? "netlink error" : "operation failed",
+                nl_geterror(ret));
+    return ret;
+
+print_help:
+    printf("%s %s [OPTIONS...] SET_NAME PATTERN\n", program_name, argv[0]);
+
+    printf("\n");
+    printf("Options:\n");
+    printf("  -h, --help    Print this help information\n");
+    printf("      --hex     Enable hexadecimal parsing mode for PATTERN\n"
+        "                (e.g., 'foo|42 41 52|' -> 'fooBAR')\n");
+
+    printf("\n");
+    printf("Arguments:\n");
+    printf("  SET_NAME    The name of the pattern set\n");
+    printf("  PATTERN     The pattern string\n");
+
+    return 0;
+}
+
+static int do_add(int argc, char *argv[]) {
+    return do_add_del(argc, argv, STRIDER_CMD_ADD_PATTERN);
+}
+
+static int do_del(int argc, char *argv[]) {
+    return do_add_del(argc, argv, STRIDER_CMD_DEL_PATTERN);
+}
 
 int main(int argc, char *argv[]) {
     struct option options[] = {
@@ -253,7 +386,7 @@ int main(int argc, char *argv[]) {
         {}
     };
     while (1) {
-        int c = getopt_long(argc, argv, "+hv", options, NULL);
+        int c = getopt_long(argc, argv, "+:hv", options, NULL);
         if (c == -1)
             break;
         switch (c) {
@@ -262,7 +395,11 @@ int main(int argc, char *argv[]) {
             case 'v':
                 goto print_version;
             case '?':
-                goto prompt_help;
+                if (optopt)
+                    fprintf(stderr, "%s: invalid option -- '%c'\n", program_name, optopt);
+                else
+                    fprintf(stderr, "%s: unrecognized option '%s'\n", program_name, argv[optind - 1]);
+                return EXIT_FAILURE;
             default:
                 abort();
         }
@@ -270,7 +407,7 @@ int main(int argc, char *argv[]) {
 
     if (optind >= argc) {
         fprintf(stderr, "%s: no command specified\n", program_name);
-        goto prompt_help;
+        return EXIT_FAILURE;
     }
     const char *command_name = argv[optind];
     const struct striderctl_command *command = NULL;
@@ -282,12 +419,12 @@ int main(int argc, char *argv[]) {
     }
     if (!command) {
         fprintf(stderr, "%s: unknown command '%s'\n", program_name, command_name);
-        goto prompt_help;
+        return EXIT_FAILURE;
     }
 
     argc -= optind;
     argv += optind;
-    optind = 1; // reset
+    optind = 0; // reset
     int ret = command->handler(argc, argv);
     if (ret < 0)
         return EXIT_FAILURE;
@@ -320,7 +457,4 @@ print_help:
 print_version:
     printf("%s v%s\n", program_name, version);
     return EXIT_SUCCESS;
-prompt_help:
-    fprintf(stderr, "Try '%s --help' for more information.\n", program_name);
-    return EXIT_FAILURE;
 }
