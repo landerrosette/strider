@@ -5,6 +5,7 @@
 #include <linux/compiler.h>
 #include <linux/err.h>
 #include <linux/errno.h>
+#include <linux/export.h>
 #include <linux/hashtable.h>
 #include <linux/jhash.h>
 #include <linux/list.h>
@@ -14,14 +15,13 @@
 #include <linux/rcupdate.h>
 #include <linux/refcount.h>
 #include <linux/rwsem.h>
+#include <linux/skbuff.h>
 #include <linux/slab.h>
 #include <linux/string.h>
+#include <linux/types.h>
 #include <net/net_namespace.h>
 #include <net/netns/generic.h>
 #include <strider/limits.h>
-#include <linux/skbuff.h>
-#include <linux/types.h>
-#include <linux/export.h>
 
 #include "ac.h"
 
@@ -289,18 +289,22 @@ bool strider_set_match(const struct strider_set *set, const struct sk_buff *skb,
     bool ret = false;
     if (unlikely(!ac))
         goto out;
+
     struct skb_seq_state skb_state;
     skb_prepare_seq_read((struct sk_buff *) skb, offset, offset + len, &skb_state);
-    unsigned int consumed = 0, chunk_len;
-    const u8 *chunk_data;
+    unsigned int consumed = 0, frag_len;
+    const u8 *frag;
     struct strider_ac_match_state ac_state;
     strider_ac_match_init(ac, &ac_state);
-    while ((chunk_len = skb_seq_read(consumed, &chunk_data, &skb_state)) != 0) {
-        ret = strider_ac_match_next(&ac_state, chunk_data, chunk_len);
-        if (ret)
+    while ((frag_len = skb_seq_read(consumed, &frag, &skb_state)) > 0) {
+        ret = strider_ac_match_next(&ac_state, frag, frag_len);
+        if (ret) {
+            skb_abort_seq_read(&skb_state);
             break;
-        consumed += chunk_len;
+        }
+        consumed += frag_len;
     }
+
 out:
     rcu_read_unlock();
     return ret;
