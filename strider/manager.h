@@ -28,15 +28,10 @@ struct strider_set {
 };
 
 int __init strider_manager_init(void);
-
 void strider_manager_exit(void);
-
 int strider_set_create(struct net *net, const char *set_name);
-
 int strider_set_destroy(struct net *net, const char *set_name);
-
 int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len);
-
 int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len);
 
 
