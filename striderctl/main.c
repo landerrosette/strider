@@ -8,7 +8,8 @@
 #include <netlink/netlink.h>
 #include <netlink/genl/ctrl.h>
 #include <netlink/genl/genl.h>
-#include <strider/protocol.h>
+#include <strider/uapi/limits.h>
+#include <strider/uapi/netlink.h>
 
 static const char program_name[] = PROGRAM;
 static const char version[] = VERSION;

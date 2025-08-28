@@ -21,7 +21,7 @@
 #include <linux/types.h>
 #include <net/net_namespace.h>
 #include <net/netns/generic.h>
-#include <strider/limits.h>
+#include <strider/uapi/limits.h>
 
 #include "ac.h"
 

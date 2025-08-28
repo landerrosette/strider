@@ -1,8 +1,6 @@
-#ifndef STRIDER_PROTOCOL_H
-#define STRIDER_PROTOCOL_H
+#ifndef STRIDER_UAPI_NETLINK_H
+#define STRIDER_UAPI_NETLINK_H
 
-
-#include "limits.h"
 
 #define STRIDER_GENL_FAMILY_NAME "strider"
 #define STRIDER_GENL_VERSION 2
@@ -30,4 +28,4 @@ enum {
 #define STRIDER_ATTR_MAX (__STRIDER_ATTR_MAX - 1)
 
 
-#endif //STRIDER_PROTOCOL_H
+#endif //STRIDER_UAPI_NETLINK_H

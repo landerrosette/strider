@@ -8,7 +8,7 @@
 #include <linux/module.h>
 #include <linux/printk.h>
 #include <net/genetlink.h>
-#include <strider/protocol.h>
+#include <strider/uapi/netlink.h>
 
 #include "core.h"
 

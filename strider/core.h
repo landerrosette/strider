@@ -9,7 +9,7 @@
 #include <linux/skbuff.h>
 #include <linux/types.h>
 #include <net/net_namespace.h>
-#include <strider/limits.h>
+#include <strider/uapi/limits.h>
 
 struct strider_ac;
 
