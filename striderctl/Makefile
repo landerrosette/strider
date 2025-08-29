@@ -1,6 +1,6 @@
 PROGRAM := striderctl
 VERSION := 0.2.0
-SRCS := main.c
+SRCS := striderctl.c
 
 CC := gcc
 CFLAGS ?= -Wall -Wextra -g -O2
