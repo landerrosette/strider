@@ -20,9 +20,9 @@ struct strider_pattern {
 
 struct strider_set {
     struct strider_ac __rcu *ac;
-    struct mutex lock;
+    struct mutex lock; // used to synchronize control-path modifications
     struct hlist_node node;
-    refcount_t refcount;
+    refcount_t refcount; // used to track the number of data-path readers
     struct list_head patterns;
     char name[STRIDER_MAX_SET_NAME_SIZE];
 };
