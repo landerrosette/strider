@@ -270,8 +270,11 @@ struct strider_set *strider_set_get(struct net *net, const char *set_name) {
     struct strider_net *sn = strider_pernet(net);
     down_read(&sn->strider_sets_ht_lock);
     struct strider_set *set = strider_set_lookup_locked(sn, set_name);
-    if (set)
-        refcount_inc(&set->refcount);
+    if (!set) {
+        up_read(&sn->strider_sets_ht_lock);
+        return ERR_PTR(-ENOENT);
+    }
+    refcount_inc(&set->refcount);
     up_read(&sn->strider_sets_ht_lock);
     return set;
 }
