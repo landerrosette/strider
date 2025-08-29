@@ -273,7 +273,7 @@ static int do_create_destroy(int argc, char *argv[], enum strider_cmd nl_cmd) {
     if (ret < 0)
         return ret;
 
-    return 0;
+    return ret;
 
 print_help:
     printf("%s %s [OPTIONS...] SET_NAME\n", program_name, argv[0]);
@@ -360,7 +360,7 @@ static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd) {
     if (ret < 0)
         return ret;
 
-    return 0;
+    return ret;
 
 print_help:
     printf("%s %s [OPTIONS...] SET_NAME PATTERN\n", program_name, argv[0]);
