@@ -6,10 +6,9 @@
 #include <linux/init.h>
 #include <linux/mutex.h>
 #include <linux/refcount.h>
-#include <linux/skbuff.h>
 #include <linux/types.h>
-#include <net/net_namespace.h>
 #include <strider/uapi/limits.h>
+#include <strider/strider.h>
 
 struct strider_ac;
 
@@ -34,10 +33,6 @@ int strider_set_create(struct net *net, const char *set_name);
 int strider_set_destroy(struct net *net, const char *set_name);
 int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len);
 int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len);
-
-struct strider_set *strider_set_get(struct net *net, const char *set_name);
-void strider_set_put(struct strider_set *set);
-bool strider_set_match(const struct strider_set *set, const struct sk_buff *skb, unsigned int offset, unsigned int len);
 
 
 #endif //STRIDER_CORE_H

@@ -49,7 +49,7 @@ static const struct striderctl_command all_commands[] = {
     },
 };
 
-static const size_t num_all_commands = sizeof(all_commands) / sizeof(all_commands[0]);
+static const size_t num_commands = sizeof(all_commands) / sizeof(all_commands[0]);
 
 static void print_opt_err(char *argv[]) {
     if (optopt)
@@ -419,7 +419,7 @@ int main(int argc, char *argv[]) {
     }
     const char *command_name = argv[optind];
     const struct striderctl_command *command = NULL;
-    for (size_t i = 0; i < num_all_commands; ++i) {
+    for (size_t i = 0; i < num_commands; ++i) {
         if (strcmp(command_name, all_commands[i].name) == 0) {
             command = &all_commands[i];
             break;
@@ -445,12 +445,12 @@ print_help:
     printf("\n");
     printf("Commands:\n");
     size_t max_name_len = 0;
-    for (size_t i = 0; i < num_all_commands; ++i) {
+    for (size_t i = 0; i < num_commands; ++i) {
         size_t len = strlen(all_commands[i].name);
         if (len > max_name_len)
             max_name_len = len;
     }
-    for (size_t i = 0; i < num_all_commands; ++i)
+    for (size_t i = 0; i < num_commands; ++i)
         printf("  %-*s    %s\n", (int) max_name_len, all_commands[i].name, all_commands[i].description);
 
     printf("\n");
