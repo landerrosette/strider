@@ -1,4 +1,4 @@
-SUBDIRS := strider striderctl
+SUBDIRS := strider striderctl xt_strider
 
 .PHONY: all $(SUBDIRS) clean install
 
