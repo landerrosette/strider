@@ -163,8 +163,7 @@ static int strider_nl_connect(struct strider_nl_connection *conn) {
     if (ret < 0)
         goto fail_sk_free;
     conn->family_id = ret;
-    ret = 0;
-    return ret;
+    return 0;
 fail_sk_free:
     nl_socket_free(conn->sock);
 fail:
@@ -191,8 +190,6 @@ static int strider_nl_exch_msg(struct strider_nl_connection *conn, struct nl_msg
     if (ret < 0)
         goto out;
     ret = nl_recvmsgs(conn->sock, cb);
-    if (ret < 0)
-        goto out;
 out:
     nl_cb_put(cb);
     return ret;
@@ -202,34 +199,37 @@ static int strider_nl_do_cmd(enum strider_cmd nl_cmd, int (*cb_add_attrs[])(stru
                              const void *cb_data[]) {
     struct strider_nl_connection conn;
     int ret = strider_nl_connect(&conn);
-    int kernel_err = 0;
-    if (ret < 0)
-        goto out;
+    if (ret < 0) {
+        fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
+        return ret;
+    }
     struct nl_msg *msg = nlmsg_alloc();
     if (!msg) {
         ret = -NLE_NOMEM;
-        goto out_disconnect;
+        fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
+        goto out;
     }
     if (!genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ, conn.family_id, 0, 0, nl_cmd, STRIDER_GENL_VERSION)) {
         ret = -NLE_NOMEM;
+        fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
         goto out_msg_free;
     }
     for (size_t i = 0; cb_add_attrs[i]; ++i) {
         ret = cb_add_attrs[i](msg, cb_data[i]);
-        if (ret < 0)
+        if (ret < 0) {
+            fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
             goto out_msg_free;
+        }
     }
+    int kernel_err = 0;
     ret = strider_nl_exch_msg(&conn, msg, &kernel_err);
-    if (ret < 0)
-        goto out_msg_free;
-out_msg_free:
-    nlmsg_free(msg);
-out_disconnect:
-    strider_nl_disconnect(&conn);
-out:
     if (ret < 0)
         fprintf(stderr, "%s: %s: %s\n", program_name, kernel_err == 0 ? "netlink error" : "operation failed",
                 nl_geterror(ret));
+out_msg_free:
+    nlmsg_free(msg);
+out:
+    strider_nl_disconnect(&conn);
     return ret;
 }
 
@@ -269,11 +269,7 @@ static int do_create_destroy(int argc, char *argv[], enum strider_cmd nl_cmd) {
         return ret;
     int (*cbs[])(struct nl_msg *msg, const void *) = {add_attr_set_name, NULL};
     const void *attrs[] = {set_name, NULL};
-    ret = strider_nl_do_cmd(nl_cmd, cbs, attrs);
-    if (ret < 0)
-        return ret;
-
-    return ret;
+    return strider_nl_do_cmd(nl_cmd, cbs, attrs);
 
 print_help:
     printf("%s %s [OPTIONS...] SET_NAME\n", program_name, argv[0]);
@@ -356,11 +352,7 @@ static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd) {
     }
     int (*cbs[])(struct nl_msg *msg, const void *) = {add_attr_set_name, add_attr_pattern, NULL};
     const void *attrs[] = {set_name, &pattern, NULL};
-    ret = strider_nl_do_cmd(nl_cmd, cbs, attrs);
-    if (ret < 0)
-        return ret;
-
-    return ret;
+    return strider_nl_do_cmd(nl_cmd, cbs, attrs);
 
 print_help:
     printf("%s %s [OPTIONS...] SET_NAME PATTERN\n", program_name, argv[0]);

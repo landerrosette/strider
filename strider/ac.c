@@ -1,6 +1,5 @@
 #include "ac.h"
 
-#include <linux/bug.h>
 #include <linux/container_of.h>
 #include <linux/err.h>
 #include <linux/errno.h>
@@ -222,17 +221,16 @@ int strider_ac_add_pattern(struct strider_ac *ac, const u8 *pattern, size_t len,
 int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask) {
     LIST_HEAD(queue);
     list_add_tail(&ac->root->traversal_list, &queue);
-    int ret = 0;
     while (!list_empty(&queue)) {
         struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, traversal_list);
         list_del(&node->traversal_list);
-        ret = strider_ac_transitions_finalize(node, gfp_mask);
+        int ret = strider_ac_transitions_finalize(node, gfp_mask);
         if (ret < 0) {
             struct strider_ac_node *tmp;
             // clear the in-flight traversal queue
             list_for_each_entry_safe(node, tmp, &queue, traversal_list)
                 list_del(&node->traversal_list);
-            goto out;
+            return ret;
         }
         for (size_t i = 0; i < node->num_transitions; ++i) {
             struct strider_ac_node *child = node->transitions[i].next;
@@ -240,9 +238,7 @@ int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask) {
         }
     }
     strider_ac_failures_build(ac->root);
-out:
-    BUG_ON(!list_empty(&queue));
-    return ret;
+    return 0;
 }
 
 void strider_ac_match_init(const struct strider_ac *ac, struct strider_ac_match_state *state) {
