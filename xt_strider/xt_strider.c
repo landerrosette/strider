@@ -1,13 +1,14 @@
 #include "xt_strider.h"
+
+#include <linux/compiler.h>
+#include <linux/err.h>
+#include <linux/errno.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/skbuff.h>
 #include <linux/netfilter/x_tables.h>
 #include <strider/strider.h>
-#include <linux/skbuff.h>
 #include <strider/uapi/limits.h>
-#include <linux/errno.h>
-#include <linux/err.h>
-#include <linux/compiler.h>
-#include <linux/module.h>
-#include <linux/kernel.h>
 
 static bool strider_mt(const struct sk_buff *skb, struct xt_action_param *par) {
     const struct xt_strider_info *info = par->matchinfo;
@@ -16,9 +17,9 @@ static bool strider_mt(const struct sk_buff *skb, struct xt_action_param *par) {
 
 static int strider_mt_check(const struct xt_mtchk_param *par) {
     struct xt_strider_info *info = par->matchinfo;
-    if (info->set_name[STRIDER_MAX_SET_NAME_SIZE - 1] != '\0')
-        return -EINVAL;
     if (info->from > info->to)
+        return -EINVAL;
+    if (info->set_name[STRIDER_MAX_SET_NAME_SIZE - 1] != '\0')
         return -EINVAL;
     struct strider_set *set = strider_set_get(par->net, info->set_name);
     if (IS_ERR(set))

@@ -7,8 +7,8 @@
 #include <linux/mutex.h>
 #include <linux/refcount.h>
 #include <linux/types.h>
-#include <strider/uapi/limits.h>
 #include <strider/strider.h>
+#include <strider/uapi/limits.h>
 
 struct strider_ac;
 

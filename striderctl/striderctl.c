@@ -368,10 +368,10 @@ print_help:
     printf("\n");
     printf("Options:\n");
     printf(
-"  -h, --help    Print this help information\n");
+        "  -h, --help    Print this help information\n");
     printf(
-"      --hex     Enable hexadecimal parsing mode for PATTERN\n"
-"                (e.g., 'foo|42 41 52|' -> 'fooBAR')\n");
+        "      --hex     Enable hexadecimal parsing mode for PATTERN\n"
+        "                (e.g., 'foo|42 41 52|' -> 'fooBAR')\n");
 
     printf("\n");
     printf("Arguments:\n");

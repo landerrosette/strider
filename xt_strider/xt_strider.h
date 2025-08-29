@@ -2,8 +2,8 @@
 #define XT_STRIDER_H
 
 
-#include <strider/uapi/limits.h>
 #include <linux/types.h>
+#include <strider/uapi/limits.h>
 
 struct xt_strider_info {
     __u16 from;
