@@ -11,8 +11,8 @@
 #include <strider/uapi/limits.h>
 #include <strider/uapi/netlink.h>
 
-static const char program_name[] = PROGRAM;
-static const char version[] = VERSION;
+static const char program_name[] = PROGRAM_NAME;
+static const char version[] = PROGRAM_VER;
 
 
 struct striderctl_command {
