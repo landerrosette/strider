@@ -13,7 +13,7 @@
 
 static bool strider_mt(const struct sk_buff *skb, struct xt_action_param *par) {
     const struct xt_strider_info *info = par->matchinfo;
-    return strider_set_match(info->set, (struct sk_buff *) skb, info->from, info->to) ^ info->invert;
+    return strider_match_skb(info->set, (struct sk_buff *) skb, info->from, info->to) ^ info->invert;
 }
 
 static int strider_mt_check(const struct xt_mtchk_param *par) {

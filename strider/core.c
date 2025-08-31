@@ -289,7 +289,7 @@ void strider_set_put(struct strider_set *set) {
 
 EXPORT_SYMBOL_GPL(strider_set_put);
 
-bool strider_set_match(const struct strider_set *set, struct sk_buff *skb, unsigned int from, unsigned int to) {
+bool strider_match_skb(const struct strider_set *set, struct sk_buff *skb, unsigned int from, unsigned int to) {
     rcu_read_lock();
     struct strider_ac *ac = rcu_dereference(set->ac);
     bool ret = false;
@@ -315,4 +315,4 @@ out:
     return ret;
 }
 
-EXPORT_SYMBOL_GPL(strider_set_match);
+EXPORT_SYMBOL_GPL(strider_match_skb);
