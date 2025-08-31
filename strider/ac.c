@@ -46,14 +46,14 @@ static struct strider_ac_node *strider_ac_node_create(gfp_t gfp_mask) {
     return node;
 }
 
-static void strider_ac_node_deinit(struct strider_ac_node *node) {
+static void strider_ac_node_destroy(struct strider_ac_node *node) {
     kfree(node->transitions);
-
     struct strider_ac_transition_linked *trans, *tmp;
     list_for_each_entry_safe(trans, tmp, &node->linked_transitions, list) {
         list_del(&trans->list);
         kfree(trans);
     }
+    kfree(node);
 }
 
 static void __strider_ac_destroy(struct strider_ac *ac) {
@@ -69,8 +69,7 @@ static void __strider_ac_destroy(struct strider_ac *ac) {
         list_for_each_entry(trans, &node->linked_transitions, list)
             list_add_tail(&trans->next->traversal_list, &queue);
 
-        strider_ac_node_deinit(node);
-        kfree(node);
+        strider_ac_node_destroy(node);
     }
     kfree(ac);
 }
