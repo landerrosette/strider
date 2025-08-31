@@ -20,9 +20,10 @@ struct strider_pattern {
 
 struct strider_set {
     struct strider_ac __rcu *ac;
-    struct mutex lock; // used to synchronize control-path modifications
+    struct mutex lock;
     struct hlist_node node;
-    refcount_t refcount; // used to track the number of data-path readers
+    struct rcu_head rcu;
+    refcount_t refcount;
     struct list_head patterns;
     char name[STRIDER_MAX_SET_NAME_SIZE];
 };
@@ -30,7 +31,7 @@ struct strider_set {
 int __init strider_core_init(void);
 void strider_core_exit(void);
 int strider_set_create(struct net *net, const char *set_name);
-int strider_set_destroy(struct net *net, const char *set_name);
+int strider_set_unlink(struct net *net, const char *set_name);
 int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len);
 int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len);
 

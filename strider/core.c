@@ -38,7 +38,8 @@ static struct strider_net *strider_pernet(struct net *net) {
     return net_generic(net, strider_net_id);
 }
 
-static void strider_set_deinit_locked(struct strider_set *set) __must_hold(&set->lock) {
+static void strider_set_destroy(struct strider_set *set) {
+    mutex_lock(&set->lock);
     struct strider_pattern *entry, *tmp;
     list_for_each_entry_safe(entry, tmp, &set->patterns, list) {
         list_del(&entry->list);
@@ -47,6 +48,24 @@ static void strider_set_deinit_locked(struct strider_set *set) __must_hold(&set-
     struct strider_ac *ac = rcu_dereference_protected(set->ac, lockdep_is_held(&set->lock));
     if (ac)
         strider_ac_schedule_destroy(ac);
+    mutex_unlock(&set->lock);
+    kfree_rcu(set, rcu);
+    module_put(THIS_MODULE);
+}
+
+static void strider_sets_destroy_all(struct strider_net *sn) {
+    down_write(&sn->strider_sets_ht_lock);
+    struct strider_set *set;
+    struct hlist_node *tmp;
+    int bkt;
+    hash_for_each_safe(sn->strider_sets_ht, bkt, tmp, set, node) {
+        hash_del(&set->node);
+        if (refcount_dec_and_test(&set->refcount))
+            strider_set_destroy(set);
+        else
+            pr_warn("set '%s' busy, leaking\n", set->name);
+    }
+    up_write(&sn->strider_sets_ht_lock);
 }
 
 static struct strider_set *strider_set_lookup_locked(struct strider_net *sn, const char *set_name)
@@ -58,6 +77,21 @@ __must_hold(&sn->strider_sets_ht_lock) {
             return set;
     }
     return NULL;
+}
+
+static struct strider_set *__strider_set_get(struct net *net, const char *set_name) {
+    struct strider_net *sn = strider_pernet(net);
+    down_read(&sn->strider_sets_ht_lock);
+    struct strider_set *set = strider_set_lookup_locked(sn, set_name);
+    if (set)
+        refcount_inc(&set->refcount);
+    up_read(&sn->strider_sets_ht_lock);
+    return set;
+}
+
+static void __strider_set_put(struct strider_set *set) {
+    if (refcount_dec_and_test(&set->refcount))
+        strider_set_destroy(set);
 }
 
 static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&set->lock) {
@@ -77,27 +111,10 @@ static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&s
     struct strider_ac *old_ac = rcu_replace_pointer(set->ac, new_ac, lockdep_is_held(&set->lock));
     if (old_ac)
         strider_ac_schedule_destroy(old_ac);
-
     return ret;
-
 fail:
     strider_ac_schedule_destroy(new_ac);
     return ret;
-}
-
-static void strider_sets_do_destroy_all_locked(struct strider_net *sn) __must_hold(&sn->strider_sets_ht_lock) {
-    struct strider_set *set;
-    struct hlist_node *tmp;
-    int bkt;
-    hash_for_each_safe(sn->strider_sets_ht, bkt, tmp, set, node) {
-        mutex_lock(&set->lock);
-        hash_del(&set->node);
-
-        pr_debug("set '%s' being destroyed, refcount=%u\n", set->name, refcount_read(&set->refcount));
-        strider_set_deinit_locked(set);
-        mutex_unlock(&set->lock);
-        kfree(set);
-    }
 }
 
 static int __net_init strider_net_init(struct net *net) {
@@ -108,10 +125,7 @@ static int __net_init strider_net_init(struct net *net) {
 }
 
 static void __net_exit strider_net_exit(struct net *net) {
-    struct strider_net *sn = strider_pernet(net);
-    down_write(&sn->strider_sets_ht_lock);
-    strider_sets_do_destroy_all_locked(sn);
-    up_write(&sn->strider_sets_ht_lock);
+    strider_sets_destroy_all(strider_pernet(net));
 }
 
 static struct pernet_operations strider_net_ops = {
@@ -143,7 +157,7 @@ int strider_set_create(struct net *net, const char *set_name) {
     strscpy(new_set->name, set_name, STRIDER_MAX_SET_NAME_SIZE);
     INIT_LIST_HEAD(&new_set->patterns);
     mutex_init(&new_set->lock);
-    refcount_set(&new_set->refcount, 0);
+    refcount_set(&new_set->refcount, 1);
 
     struct strider_net *sn = strider_pernet(net);
     down_write(&sn->strider_sets_ht_lock);
@@ -165,7 +179,7 @@ fail:
     return ret;
 }
 
-int strider_set_destroy(struct net *net, const char *set_name) {
+int strider_set_unlink(struct net *net, const char *set_name) {
     struct strider_net *sn = strider_pernet(net);
     down_write(&sn->strider_sets_ht_lock);
     struct strider_set *set = strider_set_lookup_locked(sn, set_name);
@@ -173,20 +187,13 @@ int strider_set_destroy(struct net *net, const char *set_name) {
         up_write(&sn->strider_sets_ht_lock);
         return -ENOENT;
     }
-    if (refcount_read(&set->refcount) > 0) {
+    if (refcount_read(&set->refcount) > 1) {
         up_write(&sn->strider_sets_ht_lock);
         return -EBUSY;
     }
-    mutex_lock(&set->lock);
     hash_del(&set->node);
     up_write(&sn->strider_sets_ht_lock);
-
-    strider_set_deinit_locked(set);
-    mutex_unlock(&set->lock);
-    kfree(set);
-
-    module_put(THIS_MODULE);
-
+    __strider_set_put(set);
     return 0;
 }
 
@@ -197,15 +204,10 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
     memcpy(new_entry->data, pattern, len);
     new_entry->len = len;
 
-    struct strider_net *sn = strider_pernet(net);
-    down_read(&sn->strider_sets_ht_lock);
-    struct strider_set *set = strider_set_lookup_locked(sn, set_name);
-    if (!set) {
-        up_read(&sn->strider_sets_ht_lock);
+    struct strider_set *set = __strider_set_get(net, set_name);
+    if (!set)
         return -ENOENT;
-    }
     mutex_lock(&set->lock);
-    up_read(&sn->strider_sets_ht_lock);
 
     const struct strider_pattern *entry;
     int ret = 0;
@@ -222,6 +224,7 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
     pr_debug("set '%s': added pattern len=%zu data=%*ph\n", set->name, new_entry->len, (int) new_entry->len,
              new_entry->data);
     mutex_unlock(&set->lock);
+    __strider_set_put(set);
 
     return ret;
 
@@ -229,20 +232,16 @@ fail_list_del:
     list_del(&new_entry->list);
 fail:
     mutex_unlock(&set->lock);
+    __strider_set_put(set);
     kfree(new_entry);
     return ret;
 }
 
 int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len) {
-    struct strider_net *sn = strider_pernet(net);
-    down_read(&sn->strider_sets_ht_lock);
-    struct strider_set *set = strider_set_lookup_locked(sn, set_name);
-    if (!set) {
-        up_read(&sn->strider_sets_ht_lock);
+    struct strider_set *set = __strider_set_get(net, set_name);
+    if (!set)
         return -ENOENT;
-    }
     mutex_lock(&set->lock);
-    up_read(&sn->strider_sets_ht_lock);
 
     struct strider_pattern *entry, *tmp;
     int ret = -ENOENT;
@@ -257,25 +256,21 @@ int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pat
         }
     }
     mutex_unlock(&set->lock);
+    __strider_set_put(set);
 
     return ret;
 
 fail:
     list_add(&entry->list, &set->patterns);
     mutex_unlock(&set->lock);
+    __strider_set_put(set);
     return ret;
 }
 
 struct strider_set *strider_set_get(struct net *net, const char *set_name) {
-    struct strider_net *sn = strider_pernet(net);
-    down_read(&sn->strider_sets_ht_lock);
-    struct strider_set *set = strider_set_lookup_locked(sn, set_name);
-    if (!set) {
-        up_read(&sn->strider_sets_ht_lock);
+    struct strider_set *set = __strider_set_get(net, set_name);
+    if (!set)
         return ERR_PTR(-ENOENT);
-    }
-    refcount_inc(&set->refcount);
-    up_read(&sn->strider_sets_ht_lock);
     return set;
 }
 
@@ -283,7 +278,7 @@ EXPORT_SYMBOL_GPL(strider_set_get);
 
 void strider_set_put(struct strider_set *set) {
     if (set)
-        refcount_dec(&set->refcount);
+        __strider_set_put(set);
 }
 
 EXPORT_SYMBOL_GPL(strider_set_put);
