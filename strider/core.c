@@ -85,7 +85,7 @@ static struct strider_set *__strider_set_get(struct net *net, const char *set_na
     down_read(&sn->strider_sets_ht_lock);
     struct strider_set *set = strider_set_lookup_locked(sn, set_name);
     if (set) {
-        pr_debug("set '%s': refcount=++%d\n", set->name, refcount_read(&set->refcount));
+        pr_debug("set '%s': refcount=++%u\n", set->name, refcount_read(&set->refcount));
         refcount_inc(&set->refcount);
     }
     up_read(&sn->strider_sets_ht_lock);
@@ -93,7 +93,7 @@ static struct strider_set *__strider_set_get(struct net *net, const char *set_na
 }
 
 static void __strider_set_put(struct strider_set *set) {
-    pr_debug("set '%s': refcount=--%d\n", set->name, refcount_read(&set->refcount));
+    pr_debug("set '%s': refcount=--%u\n", set->name, refcount_read(&set->refcount));
     if (refcount_dec_and_test(&set->refcount))
         strider_set_destroy(set);
 }
