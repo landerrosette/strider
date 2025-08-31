@@ -3,6 +3,7 @@
 #include <linux/compiler.h>
 #include <linux/err.h>
 #include <linux/errno.h>
+#include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/skbuff.h>
@@ -43,3 +44,19 @@ static struct xt_match xt_strider_mt_reg __read_mostly = {
     .usersize = offsetof(struct xt_strider_info, set),
     .me = THIS_MODULE,
 };
+
+static int __init strider_mt_init(void) {
+    return xt_register_match(&xt_strider_mt_reg);
+}
+
+static void __exit strider_mt_exit(void) {
+    xt_unregister_match(&xt_strider_mt_reg);
+}
+
+module_init(strider_mt_init);
+module_exit(strider_mt_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("ipt_strider");
+MODULE_ALIAS("ip6t_strider");
+MODULE_ALIAS("ebt_strider");
