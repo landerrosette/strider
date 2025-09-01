@@ -1,2 +1,2 @@
-obj-m += $(KMOD_NAME).o
-ccflags-y += -I$(src)/../include
+obj-m += xt_strider.o
+ccflags-y += -I$(STRIDER_ABS_TOP_SRCDIR)/include

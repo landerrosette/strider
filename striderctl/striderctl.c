@@ -1,9 +1,13 @@
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #include <ctype.h>
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <libgen.h>
 #include <string.h>
 #include <netlink/netlink.h>
 #include <netlink/genl/ctrl.h>
@@ -11,8 +15,8 @@
 #include <strider/uapi/limits.h>
 #include <strider/uapi/netlink.h>
 
-static const char program_name[] = PROGRAM_NAME;
-static const char version[] = PROGRAM_VER;
+static const char *program_name;
+static const char version[] = VERSION;
 
 
 struct striderctl_command {
@@ -383,6 +387,9 @@ static int do_del(int argc, char *argv[]) {
 
 
 int main(int argc, char *argv[]) {
+    char *argv0_copy = strdup(argv[0]);
+    program_name = basename(argv0_copy);
+
     struct option options[] = {
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'v'},
