@@ -147,7 +147,8 @@ static int strider_ac_transitions_finalize(struct strider_ac_node *node, gfp_t g
 // called on a node with finalized transitions
 static struct strider_ac_node *strider_ac_find_next_node(const struct strider_ac_node *node, u8 ch) {
     struct strider_ac_transition key = {.ch = ch};
-    const struct strider_ac_transition *tsn = bsearch(&key, node->transitions, node->num_transitions, sizeof(*node->transitions), strider_ac_transition_compare);
+    const struct strider_ac_transition *tsn = bsearch(&key, node->transitions, node->num_transitions,
+                                                      sizeof(*node->transitions), strider_ac_transition_compare);
     return tsn ? tsn->next : NULL;
 }
 
@@ -238,8 +239,10 @@ void strider_ac_match_init(const struct strider_ac *ac, struct strider_ac_match_
     state->cursor = ac->root;
 }
 
-void strider_ac_match(struct strider_ac_match_state *state, const u8 *data, size_t len, int (*cb)(const struct strider_ac_target *target, size_t pos, void *ctx), void *cb_ctx) {
+int strider_ac_match(struct strider_ac_match_state *state, const u8 *data, size_t len,
+                     int (*cb)(const struct strider_ac_target *target, size_t pos, void *ctx), void *cb_ctx) {
     const struct strider_ac_node *cursor = state->cursor;
+    int ret = 0;
     for (size_t i = 0; i < len; ++i) {
         for (const struct strider_ac_node *node = cursor; ; node = node->failure) {
             const struct strider_ac_node *next = strider_ac_find_next_node(node, data[i]);
@@ -258,7 +261,8 @@ void strider_ac_match(struct strider_ac_match_state *state, const u8 *data, size
             if (!list_empty(&node->outputs)) {
                 const struct strider_ac_target *target;
                 list_for_each_entry(target, &node->outputs, list) {
-                    if (cb(target, i, cb_ctx) != 0)
+                    ret = cb(target, i, cb_ctx);
+                    if (ret != 0)
                         goto out;
                 }
             }
@@ -266,4 +270,5 @@ void strider_ac_match(struct strider_ac_match_state *state, const u8 *data, size
     }
 out:
     state->cursor = cursor;
+    return ret;
 }
