@@ -9,7 +9,6 @@
 #include <linux/slab.h>
 #include <linux/sort.h>
 #include <linux/types.h>
-#include <linux/workqueue.h>
 
 // Represents a finalized, read-only transition.
 struct strider_ac_transition {
@@ -36,7 +35,6 @@ struct strider_ac_node {
 
 struct strider_ac {
     struct strider_ac_node *root;
-    struct work_struct destroy_work;
     struct rcu_head rcu;
 };
 
@@ -77,15 +75,9 @@ static void __strider_ac_destroy(struct strider_ac *ac) {
     kfree(ac);
 }
 
-static void strider_ac_destroy_work_fn(struct work_struct *work) {
-    struct strider_ac *ac = container_of(work, struct strider_ac, destroy_work);
-    __strider_ac_destroy(ac);
-}
-
 static void strider_ac_destroy_rcu_cb(struct rcu_head *rcu) {
     struct strider_ac *ac = container_of(rcu, struct strider_ac, rcu);
-    INIT_WORK(&ac->destroy_work, strider_ac_destroy_work_fn);
-    schedule_work(&ac->destroy_work);
+    __strider_ac_destroy(ac);
 }
 
 static struct strider_ac_node *strider_ac_transition_build(struct strider_ac_node *node, u8 ch, gfp_t gfp_mask) {
