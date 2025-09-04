@@ -2,5 +2,5 @@ obj-m += strider.o
 strider-y := main.o netlink.o core.o ac.o
 ccflags-y += -I$(STRIDER_ABS_TOP_SRCDIR)/include
 
-obj-$(CONFIG_STRIDER_AC_TEST) := strider_ac_test.o
+obj-$(CONFIG_STRIDER_AC_KUNIT_TEST) += strider_ac_test.o
 strider_ac_test-y := ac_test.o ac.o
