@@ -10,11 +10,11 @@
 #include <strider/strider.h>
 #include <strider/uapi/limits.h>
 
-struct strider_ac;
+#include "ac.h"
 
 struct strider_pattern {
     struct list_head list;
-    size_t len;
+    struct strider_ac_target ac_target;
     u8 data[];
 };
 

@@ -1,0 +1,4 @@
+config STRIDER_AC_KUNIT_TEST
+    tristate "KUnit tests for Strider Aho-Corasick" if !KUNIT_ALL_TESTS
+    depends on KUNIT
+    default KUNIT_ALL_TESTS
