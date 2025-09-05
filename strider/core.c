@@ -226,7 +226,8 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
     ret = strider_set_refresh_ac_locked(set);
     if (ret < 0)
         goto fail_list_del;
-    pr_debug("set '%s': added pattern len=%zu data=%*ph\n", set->name, new_entry->ac_target.pattern_len, (int) new_entry->ac_target.pattern_len, new_entry->data);
+    pr_debug("set '%s': added pattern len=%zu data=%*ph\n", set->name, new_entry->ac_target.pattern_len,
+             (int) new_entry->ac_target.pattern_len, new_entry->data);
     mutex_unlock(&set->lock);
     __strider_set_put(set);
 
@@ -288,7 +289,7 @@ void strider_set_put(struct strider_set *set) {
 EXPORT_SYMBOL_GPL(strider_set_put);
 
 static int strider_match_skb_cb(const struct strider_ac_target *target, size_t pos, void *ctx) {
-    *(bool *)ctx = true;
+    *(bool *) ctx = true;
     return 1;
 }
 

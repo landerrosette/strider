@@ -21,7 +21,7 @@ enum strider_cmd {
 enum {
     STRIDER_ATTR_UNSPEC,
     STRIDER_ATTR_SET_NAME, // type: NLA_NUL_STRING
-    STRIDER_ATTR_PATTERN, // type: NLA_BINARY
+    STRIDER_ATTR_PATTERN,  // type: NLA_BINARY
     __STRIDER_ATTR_MAX,
 };
 

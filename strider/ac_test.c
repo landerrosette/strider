@@ -35,10 +35,10 @@ static void strider_ac_test_resource_free(struct kunit_resource *res) {
     strider_ac_schedule_destroy(res->data);
 }
 
-static int strider_ac_test_match_cb(const struct strider_ac_target *target, size_t pos, void *ctx) {
+static int strider_ac_test_match_cb(const struct strider_ac_target *ac_target, size_t pos, void *ctx) {
     struct strider_ac_test_match_info *info = ctx;
     ++info->match_count;
-    int found_id = container_of(target, struct strider_ac_test_target, ac_target)->id;
+    int found_id = container_of(ac_target, struct strider_ac_test_target, ac_target)->id;
     KUNIT_ASSERT_LT(info->test, found_id, STRIDER_AC_TEST_MAX_TARGETS);
     info->found_id_mask |= 1U << found_id;
     return 0;
@@ -56,7 +56,7 @@ static void strider_ac_test_case_run(struct kunit *test, const char *patterns[],
             .ac_target = (struct strider_ac_target){
                 .pattern = (const u8 *) patterns[i], .pattern_len = strlen(patterns[i])
             },
-            .id = i
+            .id = i,
         };
         ret = strider_ac_add_target(ac, &targets[i].ac_target, GFP_KERNEL);
         KUNIT_ASSERT_GE(test, ret, 0);
@@ -73,63 +73,51 @@ static void strider_ac_test_case_run(struct kunit *test, const char *patterns[],
 }
 
 static void test_classic_prefix_suffix_overlap(struct kunit *test) {
-    strider_ac_test_case_run(
-        test,
-        (const char *[]){"he", "she", "his", "hers", NULL},
-        "ahishers",
-        4,
-        1U << 0 | 1U << 1 | 1U << 2 | 1U << 3
-    );
+    strider_ac_test_case_run(test,
+                             (const char *[]){"he", "she", "his", "hers", NULL},
+                             "ahishers",
+                             4,
+                             1U << 0 | 1U << 1 | 1U << 2 | 1U << 3);
 }
 
 static void test_multi_overlap_sequences(struct kunit *test) {
-    strider_ac_test_case_run(
-        test,
-        (const char *[]){"ana", "nana", "banana", NULL},
-        "bananana",
-        6,
-        1U << 0 | 1U << 1 | 1U << 2
-    );
+    strider_ac_test_case_run(test,
+                             (const char *[]){"ana", "nana", "banana", NULL},
+                             "bananana",
+                             6,
+                             1U << 0 | 1U << 1 | 1U << 2);
 }
 
 static void test_repeated_char_overlaps(struct kunit *test) {
-    strider_ac_test_case_run(
-        test,
-        (const char *[]){"a", "aa", "aaa", NULL},
-        "aaaaa",
-        12,
-        1U << 0 | 1U << 1 | 1U << 2
-    );
+    strider_ac_test_case_run(test,
+                             (const char *[]){"a", "aa", "aaa", NULL},
+                             "aaaaa",
+                             12,
+                             1U << 0 | 1U << 1 | 1U << 2);
 }
 
 static void test_shared_prefix_varied_lengths(struct kunit *test) {
-    strider_ac_test_case_run(
-        test,
-        (const char *[]){"a", "ab", "bab", "bc", "bca", "c", "caa", NULL},
-        "abccab",
-        7,
-        1U << 0 | 1U << 1 | 1U << 3 | 1U << 5
-    );
+    strider_ac_test_case_run(test,
+                             (const char *[]){"a", "ab", "bab", "bc", "bca", "c", "caa", NULL},
+                             "abccab",
+                             7,
+                             1U << 0 | 1U << 1 | 1U << 3 | 1U << 5);
 }
 
 static void test_nested_prefix_suffix_outputs(struct kunit *test) {
-    strider_ac_test_case_run(
-        test,
-        (const char *[]){"abc", "abcd", "bc", NULL},
-        "zabcabcd",
-        5,
-        1U << 0 | 1U << 1 | 1U << 2
-    );
+    strider_ac_test_case_run(test,
+                             (const char *[]){"abc", "abcd", "bc", NULL},
+                             "zabcabcd",
+                             5,
+                             1U << 0 | 1U << 1 | 1U << 2);
 }
 
 static void test_no_match_result(struct kunit *test) {
-    strider_ac_test_case_run(
-        test,
-        (const char *[]){"hello", "world", NULL},
-        "well, hi there",
-        0,
-        0
-    );
+    strider_ac_test_case_run(test,
+                             (const char *[]){"hello", "world", NULL},
+                             "well, hi there",
+                             0,
+                             0);
 }
 
 static struct kunit_case strider_ac_test_cases[] = {
