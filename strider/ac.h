@@ -9,7 +9,8 @@ struct strider_ac;
 struct strider_ac_target {
     const u8 *pattern;
     size_t pattern_len;
-    struct list_head list;
+
+    struct list_head list; // for internal use
 };
 
 struct strider_ac_match_state {

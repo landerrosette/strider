@@ -57,7 +57,7 @@ static void strider_ac_node_destroy(struct strider_ac_node *node) {
     kfree(node);
 }
 
-static void __strider_ac_destroy(struct strider_ac *ac) {
+static void strider_ac_destroy(struct strider_ac *ac) {
     LIST_HEAD(queue);
     list_add_tail(&ac->root->traversal_list, &queue);
     while (!list_empty(&queue)) {
@@ -77,7 +77,7 @@ static void __strider_ac_destroy(struct strider_ac *ac) {
 
 static void strider_ac_destroy_rcu_cb(struct rcu_head *rcu) {
     struct strider_ac *ac = container_of(rcu, struct strider_ac, rcu);
-    __strider_ac_destroy(ac);
+    strider_ac_destroy(ac);
 }
 
 static struct strider_ac_node *strider_ac_transition_build(struct strider_ac_node *node, u8 ch, gfp_t gfp_mask) {
