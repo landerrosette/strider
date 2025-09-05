@@ -13,12 +13,12 @@
 
 static bool strider_mt(const struct sk_buff *skb, struct xt_action_param *par) {
     const struct xt_strider_info *info = par->matchinfo;
-    return strider_match_skb(info->set, (struct sk_buff *) skb, info->from, info->to) ^ info->invert;
+    return strider_match_skb(info->set, (struct sk_buff *) skb, info->from_offset, info->to_offset) ^ info->invert;
 }
 
 static int strider_mt_check(const struct xt_mtchk_param *par) {
     struct xt_strider_info *info = par->matchinfo;
-    if (info->from > info->to)
+    if (info->from_offset > info->to_offset)
         return -EINVAL;
     if (info->set_name[STRIDER_MAX_SET_NAME_SIZE - 1] != '\0')
         return -EINVAL;

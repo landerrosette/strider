@@ -6,8 +6,8 @@
 #include <strider/uapi/limits.h>
 
 struct xt_strider_info {
-    __u16 from;
-    __u16 to;
+    __u16 from_offset;
+    __u16 to_offset;
     char set_name[STRIDER_MAX_SET_NAME_SIZE];
     __u8 invert;
 
