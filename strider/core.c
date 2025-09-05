@@ -23,8 +23,6 @@
 #include <net/netns/generic.h>
 #include <strider/uapi/limits.h>
 
-#include "ac.h"
-
 #define STRIDER_SETS_HASH_BITS 4
 
 struct strider_net {
@@ -102,10 +100,10 @@ static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&s
     struct strider_ac *new_ac = strider_ac_init(GFP_KERNEL);
     if (IS_ERR(new_ac))
         return PTR_ERR(new_ac);
-    const struct strider_pattern *entry;
+    struct strider_pattern *entry;
     int ret = 0;
     list_for_each_entry(entry, &set->patterns, list) {
-        ret = strider_ac_add_pattern(new_ac, entry->data, entry->len, GFP_KERNEL);
+        ret = strider_ac_add_target(new_ac, &entry->ac_target, GFP_KERNEL);
         if (ret < 0)
             goto fail;
     }
@@ -132,7 +130,7 @@ static void __net_exit strider_net_exit(struct net *net) {
     strider_sets_destroy_all(strider_pernet(net));
 }
 
-static struct pernet_operations strider_net_ops = {
+static struct pernet_operations strider_net_ops __read_mostly = {
     .init = strider_net_init,
     .exit = strider_net_exit,
     .id = &strider_net_id,
@@ -208,7 +206,8 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
     if (!new_entry)
         return -ENOMEM;
     memcpy(new_entry->data, pattern, len);
-    new_entry->len = len;
+    new_entry->ac_target.pattern = new_entry->data;
+    new_entry->ac_target.pattern_len = len;
 
     struct strider_set *set = __strider_set_get(net, set_name);
     if (!set)
@@ -218,7 +217,7 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
     const struct strider_pattern *entry;
     int ret = 0;
     list_for_each_entry(entry, &set->patterns, list) {
-        if (entry->len == len && memcmp(entry->data, pattern, len) == 0) {
+        if (entry->ac_target.pattern_len == len && memcmp(entry->ac_target.pattern, pattern, len) == 0) {
             ret = -EEXIST;
             goto fail;
         }
@@ -227,8 +226,7 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
     ret = strider_set_refresh_ac_locked(set);
     if (ret < 0)
         goto fail_list_del;
-    pr_debug("set '%s': added pattern len=%zu data=%*ph\n", set->name, new_entry->len, (int) new_entry->len,
-             new_entry->data);
+    pr_debug("set '%s': added pattern len=%zu data=%*ph\n", set->name, new_entry->ac_target.pattern_len, (int) new_entry->ac_target.pattern_len, new_entry->data);
     mutex_unlock(&set->lock);
     __strider_set_put(set);
 
@@ -252,7 +250,7 @@ int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pat
     struct strider_pattern *entry, *tmp;
     int ret = -ENOENT;
     list_for_each_entry_safe(entry, tmp, &set->patterns, list) {
-        if (entry->len == len && memcmp(entry->data, pattern, len) == 0) {
+        if (entry->ac_target.pattern_len == len && memcmp(entry->ac_target.pattern, pattern, len) == 0) {
             list_del(&entry->list);
             ret = strider_set_refresh_ac_locked(set);
             if (ret < 0)
@@ -289,6 +287,11 @@ void strider_set_put(struct strider_set *set) {
 
 EXPORT_SYMBOL_GPL(strider_set_put);
 
+static int strider_match_skb_cb(const struct strider_ac_target *target, size_t pos, void *ctx) {
+    *(bool *)ctx = true;
+    return 1;
+}
+
 bool strider_match_skb(const struct strider_set *set, struct sk_buff *skb, unsigned int from, unsigned int to) {
     rcu_read_lock();
     struct strider_ac *ac = rcu_dereference(set->ac);
@@ -303,7 +306,7 @@ bool strider_match_skb(const struct strider_set *set, struct sk_buff *skb, unsig
     const u8 *frag;
     for (unsigned int consumed = 0, frag_len; (frag_len = skb_seq_read(consumed, &frag, &skb_state)) > 0;
          consumed += frag_len) {
-        ret = strider_ac_match_next(&ac_state, frag, frag_len);
+        strider_ac_match(&ac_state, frag, frag_len, strider_match_skb_cb, &ret);
         if (ret) {
             skb_abort_seq_read(&skb_state);
             break;
