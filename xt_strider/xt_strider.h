@@ -1,5 +1,5 @@
-#ifndef XT_STRIDER_H
-#define XT_STRIDER_H
+#ifndef STRIDER_XT_STRIDER_H
+#define STRIDER_XT_STRIDER_H
 
 
 #include <linux/types.h>
@@ -16,4 +16,4 @@ struct xt_strider_info {
 };
 
 
-#endif //XT_STRIDER_H
+#endif //STRIDER_XT_STRIDER_H

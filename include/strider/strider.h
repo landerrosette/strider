@@ -1,5 +1,5 @@
-#ifndef STRIDER_H
-#define STRIDER_H
+#ifndef STRIDER_STRIDER_H
+#define STRIDER_STRIDER_H
 
 
 #include <linux/types.h>
@@ -14,4 +14,4 @@ void strider_set_put(struct strider_set *set);
 bool strider_match_skb(const struct strider_set *set, struct sk_buff *skb, unsigned int from, unsigned int to);
 
 
-#endif //STRIDER_H
+#endif //STRIDER_STRIDER_H
