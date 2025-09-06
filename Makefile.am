@@ -1,1 +1,1 @@
-SUBDIRS = strider striderctl
+SUBDIRS = strider striderctl xt_strider

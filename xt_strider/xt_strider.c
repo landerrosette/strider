@@ -7,13 +7,15 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/skbuff.h>
+#include <linux/types.h>
 #include <linux/netfilter/x_tables.h>
 #include <strider/strider.h>
 #include <strider/uapi/limits.h>
 
 static bool strider_mt(const struct sk_buff *skb, struct xt_action_param *par) {
     const struct xt_strider_info *info = par->matchinfo;
-    return strider_match_skb(info->set, (struct sk_buff *) skb, info->from_offset, info->to_offset) ^ info->invert;
+    bool invert = info->flags & XT_STRIDER_FLAG_INVERT;
+    return strider_match_skb(info->set, (struct sk_buff *) skb, info->from_offset, info->to_offset) ^ invert;
 }
 
 static int strider_mt_check(const struct xt_mtchk_param *par) {
