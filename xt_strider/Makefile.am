@@ -1,6 +1,6 @@
 xtlib_LTLIBRARIES = libxt_strider.la
 
-AM_CFLAGS = -Wall -Wextra
+AM_CFLAGS = -Wall
 libxt_strider_la_CPPFLAGS = -I$(top_srcdir)/include $(libxtables_CFLAGS)
 libxt_strider_la_LIBADD = $(libxtables_LIBS)
 libxt_strider_la_LDFLAGS = -module -avoid-version
