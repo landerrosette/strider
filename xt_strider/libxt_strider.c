@@ -47,7 +47,6 @@ static void strider_parse(struct xt_option_call *cb) {
 }
 
 static void strider_save(const void *ip, const struct xt_entry_match *match) {
-    (void) ip;
     const struct xt_strider_info *info = (const struct xt_strider_info *) match->data;
     if (info->flags & XT_STRIDER_FLAG_INVERT)
         printf(" !");
@@ -59,7 +58,6 @@ static void strider_save(const void *ip, const struct xt_entry_match *match) {
 }
 
 static void strider_print(const void *ip, const struct xt_entry_match *match, int numeric) {
-    (void) numeric;
     printf(" -m strider");
     strider_save(ip, match);
 }
