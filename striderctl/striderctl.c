@@ -54,7 +54,7 @@ static const struct striderctl_command all_commands[] = {
     },
 };
 
-static const size_t num_commands = sizeof(all_commands) / sizeof(all_commands[0]);
+static const int num_commands = sizeof(all_commands) / sizeof(all_commands[0]);
 
 static void print_opt_err(char *argv[]) {
     if (optopt)
@@ -66,11 +66,11 @@ static void print_opt_err(char *argv[]) {
 
 struct strider_pattern {
     uint8_t data[STRIDER_MAX_PATTERN_SIZE];
-    size_t len;
+    int len;
 };
 
 static int validate_set_name(const char *set_name) {
-    size_t len = strlen(set_name);
+    int len = strlen(set_name);
     if (len > STRIDER_MAX_SET_NAME_SIZE - 1) {
         fprintf(stderr, "%s: SET_NAME too long\n", program_name);
         return -1;
@@ -83,14 +83,14 @@ static int validate_set_name(const char *set_name) {
 }
 
 static int parse_hex_string(const char *s, struct strider_pattern *pattern) {
-    size_t idx = 0;
+    int idx = 0;
     bool hex_flag = false, literal_flag = false;
-    size_t len = strlen(s);
+    int len = strlen(s);
     if (len == 0) {
         fprintf(stderr, "%s: PATTERN cannot be empty\n", program_name);
         return -1;
     }
-    for (size_t i = 0; i < len; ++idx) {
+    for (int i = 0; i < len; ++idx) {
         if (idx >= STRIDER_MAX_PATTERN_SIZE) {
             fprintf(stderr, "%s: PATTERN too long\n", program_name);
             return -1;
@@ -181,7 +181,6 @@ static void strider_nl_disconnect(struct strider_nl_connection *conn) {
 }
 
 static int get_kernel_err(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void *arg) {
-    (void) nla;
     *(int *) arg = nlerr->error;
     return NL_STOP;
 }
@@ -219,7 +218,7 @@ static int strider_nl_do_cmd(enum strider_cmd nl_cmd, int (*cb_add_attrs[])(stru
         fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
         goto out_msg_free;
     }
-    for (size_t i = 0; cb_add_attrs[i]; ++i) {
+    for (int i = 0; cb_add_attrs[i]; ++i) {
         ret = cb_add_attrs[i](msg, cb_data[i]);
         if (ret < 0) {
             fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
@@ -343,7 +342,7 @@ static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd) {
         if (ret < 0)
             return ret;
     } else {
-        size_t len = strlen(pattern_str);
+        int len = strlen(pattern_str);
         if (len > STRIDER_MAX_PATTERN_SIZE) {
             fprintf(stderr, "%s: PATTERN too long\n", program_name);
             return -1;
@@ -419,7 +418,7 @@ int main(int argc, char *argv[]) {
     }
     const char *command_name = argv[optind];
     const struct striderctl_command *command = NULL;
-    for (size_t i = 0; i < num_commands; ++i) {
+    for (int i = 0; i < num_commands; ++i) {
         if (strcmp(command_name, all_commands[i].name) == 0) {
             command = &all_commands[i];
             break;
@@ -444,13 +443,13 @@ print_help:
 
     printf("\n");
     printf("Commands:\n");
-    size_t max_name_len = 0;
-    for (size_t i = 0; i < num_commands; ++i) {
-        size_t len = strlen(all_commands[i].name);
+    int max_name_len = 0;
+    for (int i = 0; i < num_commands; ++i) {
+        int len = strlen(all_commands[i].name);
         if (len > max_name_len)
             max_name_len = len;
     }
-    for (size_t i = 0; i < num_commands; ++i)
+    for (int i = 0; i < num_commands; ++i)
         printf("  %-*s    %s\n", (int) max_name_len, all_commands[i].name, all_commands[i].description);
 
     printf("\n");
