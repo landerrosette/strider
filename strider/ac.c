@@ -25,11 +25,11 @@ struct strider_ac_node {
             struct strider_ac_node **children; // array sorted by bytes
         } sparse;
 
-        struct list_head build; // list of struct strider_ac_build_transition
+        struct list_head linked;
     } transitions;
 
     enum {
-        STRIDER_AC_TRANSITIONS_BUILD,
+        STRIDER_AC_TRANSITIONS_LINKED,
         STRIDER_AC_TRANSITIONS_DENSE,
         STRIDER_AC_TRANSITIONS_SPARSE,
     } transitions_type;
@@ -46,7 +46,7 @@ struct strider_ac {
     struct rcu_head rcu;
 };
 
-struct strider_ac_build_transition {
+struct strider_ac_linked_transition {
     struct list_head list;
     struct strider_ac_node *next;
     u8 byte;
@@ -58,15 +58,15 @@ static struct strider_ac_node *strider_ac_node_create(gfp_t gfp_mask) {
         return NULL;
     INIT_LIST_HEAD(&node->list);
     INIT_LIST_HEAD(&node->outputs);
-    INIT_LIST_HEAD(&node->transitions.build);
+    INIT_LIST_HEAD(&node->transitions.linked);
     return node;
 }
 
 static void strider_ac_node_destroy(struct strider_ac_node *node) {
     switch (node->transitions_type) {
-        case STRIDER_AC_TRANSITIONS_BUILD: {
-            struct strider_ac_build_transition *tsn, *tmp;
-            list_for_each_entry_safe(tsn, tmp, &node->transitions.build, list) {
+        case STRIDER_AC_TRANSITIONS_LINKED: {
+            struct strider_ac_linked_transition *tsn, *tmp;
+            list_for_each_entry_safe(tsn, tmp, &node->transitions.linked, list) {
                 list_del(&tsn->list);
                 kfree(tsn);
             }
@@ -90,9 +90,9 @@ static void strider_ac_destroy(struct strider_ac *ac) {
         struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, list);
         list_del(&node->list);
 
-        if (node->transitions_type == STRIDER_AC_TRANSITIONS_BUILD) {
-            struct strider_ac_build_transition *tsn;
-            list_for_each_entry(tsn, &node->transitions.build, list)
+        if (node->transitions_type == STRIDER_AC_TRANSITIONS_LINKED) {
+            struct strider_ac_linked_transition *tsn;
+            list_for_each_entry(tsn, &node->transitions.linked, list)
                 list_add_tail(&tsn->next->list, &queue);
         } else {
             for (u16 i = 0; i < node->num_children; ++i) {
@@ -114,10 +114,10 @@ static void strider_ac_destroy_rcu_cb(struct rcu_head *rcu) {
     strider_ac_destroy(ac);
 }
 
-static struct strider_ac_node *strider_ac_node_build_next(struct strider_ac_node *node, u8 byte, gfp_t gfp_mask) {
-    struct strider_ac_build_transition *tsn;
+static struct strider_ac_node *strider_ac_node_add_next(struct strider_ac_node *node, u8 byte, gfp_t gfp_mask) {
+    struct strider_ac_linked_transition *tsn;
 
-    list_for_each_entry(tsn, &node->transitions.build, list) {
+    list_for_each_entry(tsn, &node->transitions.linked, list) {
         if (tsn->byte == byte)
             return tsn->next;
     }
@@ -131,7 +131,7 @@ static struct strider_ac_node *strider_ac_node_build_next(struct strider_ac_node
         return ERR_PTR(-ENOMEM);
     }
     tsn->byte = byte;
-    list_add_tail(&tsn->list, &node->transitions.build);
+    list_add_tail(&tsn->list, &node->transitions.linked);
     return tsn->next;
 }
 
@@ -139,8 +139,8 @@ static int strider_ac_node_finalize_dense(struct strider_ac_node *node, gfp_t gf
     struct strider_ac_node **children = kcalloc(STRIDER_AC_ALPHABET_SIZE, sizeof(*children), gfp_mask);
     if (!children)
         return -ENOMEM;
-    struct strider_ac_build_transition *tsn;
-    list_for_each_entry(tsn, &node->transitions.build, list)
+    struct strider_ac_linked_transition *tsn;
+    list_for_each_entry(tsn, &node->transitions.linked, list)
         children[tsn->byte] = tsn->next;
     node->transitions_type = STRIDER_AC_TRANSITIONS_DENSE;
     node->transitions.dense.children = children;
@@ -148,9 +148,9 @@ static int strider_ac_node_finalize_dense(struct strider_ac_node *node, gfp_t gf
     return 0;
 }
 
-static int strider_ac_build_transition_compare(void *priv, const struct list_head *a, const struct list_head *b) {
-    const struct strider_ac_build_transition *tsn_a = list_entry(a, struct strider_ac_build_transition, list);
-    const struct strider_ac_build_transition *tsn_b = list_entry(b, struct strider_ac_build_transition, list);
+static int strider_ac_linked_transition_compare(void *priv, const struct list_head *a, const struct list_head *b) {
+    const struct strider_ac_linked_transition *tsn_a = list_entry(a, struct strider_ac_linked_transition, list);
+    const struct strider_ac_linked_transition *tsn_b = list_entry(b, struct strider_ac_linked_transition, list);
     return tsn_a->byte - tsn_b->byte;
 }
 
@@ -164,10 +164,10 @@ static int strider_ac_node_finalize_sparse(struct strider_ac_node *node, u16 num
         return -ENOMEM;
     }
 
-    list_sort(NULL, &node->transitions.build, strider_ac_build_transition_compare);
+    list_sort(NULL, &node->transitions.linked, strider_ac_linked_transition_compare);
     u16 i = 0;
-    struct strider_ac_build_transition *tsn, *tmp;
-    list_for_each_entry_safe(tsn, tmp, &node->transitions.build, list) {
+    struct strider_ac_linked_transition *tsn, *tmp;
+    list_for_each_entry_safe(tsn, tmp, &node->transitions.linked, list) {
         bytes[i] = tsn->byte;
         children[i] = tsn->next;
         ++i;
@@ -214,8 +214,8 @@ static struct strider_ac_node *strider_ac_node_find_failure(const struct strider
     return strider_ac_node_find_next(node, byte);
 }
 
-static int strider_ac_finalize(struct strider_ac_node *root, gfp_t gfp_mask) {
-    strider_ac_node_finalize_dense(root, gfp_mask); // always make root dense
+static int strider_ac_finalize_nodes(struct strider_ac_node *root, gfp_t gfp_mask) {
+    strider_ac_node_finalize_dense(root, gfp_mask); // always make dense transitions for root
     LIST_HEAD(queue);
     for (u16 i = 0; i < root->num_children; ++i) {
         struct strider_ac_node *child = root->transitions.dense.children[i];
@@ -227,8 +227,8 @@ static int strider_ac_finalize(struct strider_ac_node *root, gfp_t gfp_mask) {
         list_del(&node->list);
 
         u16 count = 0;
-        struct strider_ac_build_transition *tsn;
-        list_for_each_entry(tsn, &node->transitions.build, list)
+        struct strider_ac_linked_transition *tsn;
+        list_for_each_entry(tsn, &node->transitions.linked, list)
             ++count;
         if (count > 0) {
             int ret = count > STRIDER_AC_TRANSITIONS_SPARSE_LIMIT
@@ -306,7 +306,7 @@ void strider_ac_schedule_destroy(struct strider_ac *ac) {
 int strider_ac_add_target(struct strider_ac *ac, struct strider_ac_target *target, gfp_t gfp_mask) {
     struct strider_ac_node *node = ac->root;
     for (size_t i = 0; i < target->pattern_len; ++i) {
-        node = strider_ac_node_build_next(node, target->pattern[i], gfp_mask);
+        node = strider_ac_node_add_next(node, target->pattern[i], gfp_mask);
         if (IS_ERR(node))
             return PTR_ERR(node);
     }
@@ -315,7 +315,7 @@ int strider_ac_add_target(struct strider_ac *ac, struct strider_ac_target *targe
 }
 
 int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask) {
-    int ret = strider_ac_finalize(ac->root, gfp_mask);
+    int ret = strider_ac_finalize_nodes(ac->root, gfp_mask);
     if (ret < 0)
         return ret;
     strider_ac_build_links(ac->root);
