@@ -158,9 +158,12 @@ static int strider_ac_node_finalize_dense(struct strider_ac_node *node, gfp_t gf
     struct strider_ac_node **children = kcalloc(STRIDER_AC_ALPHABET_SIZE, sizeof(*children), gfp_mask);
     if (!children)
         return -ENOMEM;
-    struct strider_ac_linked_transition *tsn;
-    list_for_each_entry(tsn, &node->transitions.linked, list)
+    struct strider_ac_linked_transition *tsn, *tmp;
+    list_for_each_entry_safe(tsn, tmp, &node->transitions.linked, list) {
         children[tsn->byte] = tsn->next;
+        list_del(&tsn->list);
+        kmem_cache_free(strider_ac_linked_transition_cache, tsn);
+    }
     node->transitions_type = STRIDER_AC_TRANSITIONS_DENSE;
     node->transitions.dense.children = children;
     node->num_children = STRIDER_AC_ALPHABET_SIZE;
@@ -234,7 +237,9 @@ static struct strider_ac_node *strider_ac_node_find_failure(const struct strider
 }
 
 static int strider_ac_finalize_nodes(struct strider_ac_node *root, gfp_t gfp_mask) {
-    strider_ac_node_finalize_dense(root, gfp_mask); // always make dense transitions for root
+    int ret = strider_ac_node_finalize_dense(root, gfp_mask); // always make dense transitions for root
+    if (ret < 0)
+        return ret;
     LIST_HEAD(queue);
     for (u16 i = 0; i < root->num_children; ++i) {
         struct strider_ac_node *child = root->transitions.dense.children[i];
@@ -250,7 +255,7 @@ static int strider_ac_finalize_nodes(struct strider_ac_node *root, gfp_t gfp_mas
         list_for_each_entry(tsn, &node->transitions.linked, list)
             ++count;
         if (count > 0) {
-            int ret = count > STRIDER_AC_TRANSITIONS_SPARSE_LIMIT
+            ret = count > STRIDER_AC_TRANSITIONS_SPARSE_LIMIT
                           ? strider_ac_node_finalize_dense(node, gfp_mask)
                           : strider_ac_node_finalize_sparse(node, count, gfp_mask);
             if (ret < 0) {
