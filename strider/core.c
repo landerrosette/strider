@@ -97,7 +97,7 @@ static void __strider_set_put(struct strider_set *set) {
 }
 
 static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&set->lock) {
-    struct strider_ac *new_ac = strider_ac_init(GFP_KERNEL);
+    struct strider_ac *new_ac = strider_ac_create(GFP_KERNEL);
     if (IS_ERR(new_ac))
         return PTR_ERR(new_ac);
     struct strider_pattern *entry;
@@ -138,11 +138,20 @@ static struct pernet_operations strider_net_ops __read_mostly = {
 };
 
 int __init strider_core_init(void) {
-    return register_pernet_subsys(&strider_net_ops);
+    int ret = strider_ac_caches_create();
+    if (ret < 0)
+        return ret;
+    ret = register_pernet_subsys(&strider_net_ops);
+    if (ret < 0) {
+        strider_ac_caches_destroy();
+        return ret;
+    }
+    return ret;
 }
 
 void strider_core_exit(void) {
     unregister_pernet_subsys(&strider_net_ops);
+    strider_ac_caches_destroy();
     rcu_barrier();
 }
 

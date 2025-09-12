@@ -24,7 +24,7 @@ struct strider_ac_test_match_info {
 };
 
 static int strider_ac_test_resource_init(struct kunit_resource *res, void *ctx) {
-    struct strider_ac *ac = strider_ac_init(GFP_KERNEL);
+    struct strider_ac *ac = strider_ac_create(GFP_KERNEL);
     if (IS_ERR(ac))
         return PTR_ERR(ac);
     res->data = ac;
@@ -130,12 +130,18 @@ static struct kunit_case strider_ac_test_cases[] = {
     {}
 };
 
+static int strider_ac_test_suite_init(struct kunit_suite *suite) {
+    return strider_ac_caches_create();
+}
+
 static void strider_ac_test_suite_exit(struct kunit_suite *suite) {
+    strider_ac_caches_destroy();
     rcu_barrier();
 }
 
 static struct kunit_suite strider_ac_test_suite = {
     .name = "strider_ac",
+    .suite_init = strider_ac_test_suite_init,
     .suite_exit = strider_ac_test_suite_exit,
     .test_cases = strider_ac_test_cases,
 };

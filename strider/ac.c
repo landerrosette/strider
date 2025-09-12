@@ -52,11 +52,30 @@ struct strider_ac_linked_transition {
     u8 byte;
 };
 
+static struct kmem_cache *strider_ac_node_cache;
+static struct kmem_cache *strider_ac_linked_transition_cache;
+
+int strider_ac_caches_create(void) {
+    strider_ac_node_cache = KMEM_CACHE(strider_ac_node, SLAB_HWCACHE_ALIGN);
+    if (!strider_ac_node_cache)
+        return -ENOMEM;
+    strider_ac_linked_transition_cache = KMEM_CACHE(strider_ac_linked_transition, SLAB_HWCACHE_ALIGN);
+    if (!strider_ac_linked_transition_cache) {
+        kmem_cache_destroy(strider_ac_node_cache);
+        return -ENOMEM;
+    }
+    return 0;
+}
+
+void strider_ac_caches_destroy(void) {
+    kmem_cache_destroy(strider_ac_linked_transition_cache);
+    kmem_cache_destroy(strider_ac_node_cache);
+}
+
 static struct strider_ac_node *strider_ac_node_create(gfp_t gfp_mask) {
-    struct strider_ac_node *node = kzalloc(sizeof(*node), gfp_mask);
+    struct strider_ac_node *node = kmem_cache_zalloc(strider_ac_node_cache, gfp_mask);
     if (!node)
         return NULL;
-    INIT_LIST_HEAD(&node->list);
     INIT_LIST_HEAD(&node->outputs);
     INIT_LIST_HEAD(&node->transitions.linked);
     return node;
@@ -68,7 +87,7 @@ static void strider_ac_node_destroy(struct strider_ac_node *node) {
             struct strider_ac_linked_transition *tsn, *tmp;
             list_for_each_entry_safe(tsn, tmp, &node->transitions.linked, list) {
                 list_del(&tsn->list);
-                kfree(tsn);
+                kmem_cache_free(strider_ac_linked_transition_cache, tsn);
             }
             break;
         }
@@ -80,7 +99,7 @@ static void strider_ac_node_destroy(struct strider_ac_node *node) {
             kfree(node->transitions.sparse.children);
             break;
     }
-    kfree(node);
+    kmem_cache_free(strider_ac_node_cache, node);
 }
 
 static void strider_ac_destroy(struct strider_ac *ac) {
@@ -122,16 +141,16 @@ static struct strider_ac_node *strider_ac_node_add_next(struct strider_ac_node *
             return tsn->next;
     }
 
-    tsn = kmalloc(sizeof(*tsn), gfp_mask);
+    tsn = kmem_cache_alloc(strider_ac_linked_transition_cache, gfp_mask);
     if (!tsn)
         return ERR_PTR(-ENOMEM);
     tsn->next = strider_ac_node_create(gfp_mask);
     if (!tsn->next) {
-        kfree(tsn);
+        kmem_cache_free(strider_ac_linked_transition_cache, tsn);
         return ERR_PTR(-ENOMEM);
     }
     tsn->byte = byte;
-    list_add_tail(&tsn->list, &node->transitions.linked);
+    list_add(&tsn->list, &node->transitions.linked);
     return tsn->next;
 }
 
@@ -172,7 +191,7 @@ static int strider_ac_node_finalize_sparse(struct strider_ac_node *node, u16 num
         children[i] = tsn->next;
         ++i;
         list_del(&tsn->list);
-        kfree(tsn);
+        kmem_cache_free(strider_ac_linked_transition_cache, tsn);
     }
 
     node->transitions_type = STRIDER_AC_TRANSITIONS_SPARSE;
@@ -287,7 +306,7 @@ static void strider_ac_build_links(struct strider_ac_node *root) {
     }
 }
 
-struct strider_ac *strider_ac_init(gfp_t gfp_mask) {
+struct strider_ac *strider_ac_create(gfp_t gfp_mask) {
     struct strider_ac *ac = kmalloc(sizeof(*ac), gfp_mask);
     if (!ac)
         return ERR_PTR(-ENOMEM);
