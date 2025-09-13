@@ -61,4 +61,3 @@ module_exit(strider_mt_exit);
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("ipt_strider");
 MODULE_ALIAS("ip6t_strider");
-MODULE_ALIAS("ebt_strider");
