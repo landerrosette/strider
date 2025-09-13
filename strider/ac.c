@@ -256,8 +256,8 @@ static int strider_ac_finalize_nodes(struct strider_ac_node *root, gfp_t gfp_mas
             ++count;
         if (count > 0) {
             ret = count > STRIDER_AC_TRANSITIONS_SPARSE_LIMIT
-                          ? strider_ac_node_finalize_dense(node, gfp_mask)
-                          : strider_ac_node_finalize_sparse(node, count, gfp_mask);
+                      ? strider_ac_node_finalize_dense(node, gfp_mask)
+                      : strider_ac_node_finalize_sparse(node, count, gfp_mask);
             if (ret < 0) {
                 struct strider_ac_node *tmp;
                 // clear the in-flight traversal queue
