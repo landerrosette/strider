@@ -22,7 +22,7 @@ sudo apt install build-essential pkg-config linux-headers-$(uname -r) autoconf a
 
 ### Build and Install
 
-Use the following commands to build and install Strider, including kernel modules `strider` and `xt_strider`, an utility program `striderctl`, and a shared library `libxt_strider.so`.
+Use the following commands to build and install Strider, including kernel modules `strider` and `xt_strider`, an utility program `striderctl`, and a shared library `libxt_strider.so`:
 
 ```shell
 autoreconf -i
