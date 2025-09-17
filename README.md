@@ -70,7 +70,7 @@ sudo apt install build-essential pkg-config \
 
 3. **Use the set in an iptables rule**
 
-   Use `-m strider` to block any TCP packets on port 80 containing patterns from "blocklist":
+   Drop any TCP packets on port 80 containing patterns from "blocklist":
 
     ```shell
     sudo iptables -A INPUT -p tcp --dport 80 -m strider --match-set blocklist -j DROP
