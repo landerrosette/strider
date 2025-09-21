@@ -107,7 +107,7 @@ static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&s
         if (ret < 0)
             goto fail;
     }
-    ret = strider_ac_compile(new_ac, GFP_KERNEL);
+    ret = strider_ac_compile(new_ac);
     if (ret < 0)
         goto fail;
     struct strider_ac *old_ac = rcu_replace_pointer(set->ac, new_ac, lockdep_is_held(&set->lock));

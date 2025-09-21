@@ -23,7 +23,7 @@ void strider_ac_caches_destroy(void);
 struct strider_ac *strider_ac_create(gfp_t gfp_mask);
 void strider_ac_schedule_destroy(struct strider_ac *ac);
 int strider_ac_add_target(struct strider_ac *ac, struct strider_ac_target *target, gfp_t gfp_mask);
-int strider_ac_compile(struct strider_ac *ac, gfp_t gfp_mask);
+int strider_ac_compile(struct strider_ac *ac);
 
 void strider_ac_match_init(const struct strider_ac *ac, struct strider_ac_match_state *state);
 int strider_ac_match(struct strider_ac_match_state *state, const u8 *data, size_t len,
