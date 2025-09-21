@@ -61,7 +61,7 @@ static void strider_ac_test_case_run(struct kunit *test, const char *patterns[],
         ret = strider_ac_add_target(ac, &targets[i].ac_target, GFP_KERNEL);
         KUNIT_ASSERT_GE(test, ret, 0);
     }
-    ret = strider_ac_compile(ac, GFP_KERNEL);
+    ret = strider_ac_compile(ac);
     KUNIT_ASSERT_GE(test, ret, 0);
 
     struct strider_ac_test_match_info info = {.test = test};
