@@ -192,12 +192,12 @@ static int strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct stri
             struct strider_ac_node **children = strider_ac_arena_zalloc(
                 arena, STRIDER_AC_ALPHABET_SIZE * sizeof(*children));
             if (!children)
-                return -ENOSPC;
+                goto fail;
             struct strider_ac_build_transition *tsn;
             list_for_each_entry(tsn, &bnode->transitions, list) {
                 struct strider_ac_node *child = strider_ac_arena_zalloc(arena, sizeof(*child));
                 if (!child)
-                    return -ENOSPC;
+                    goto fail;
                 children[tsn->byte] = child;
                 tsn->next->final = child;
                 list_add_tail(&tsn->next->list, &queue);
@@ -208,16 +208,16 @@ static int strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct stri
         } else if (bnode->num_children > 0) {
             u8 *bytes = strider_ac_arena_alloc(arena, bnode->num_children * sizeof(*bytes));
             if (!bytes)
-                return -ENOSPC;
+                goto fail;
             struct strider_ac_node **children = strider_ac_arena_alloc(arena, bnode->num_children * sizeof(*children));
             if (!children)
-                return -ENOSPC;
+                goto fail;
             u16 i = 0;
             struct strider_ac_build_transition *tsn;
             list_for_each_entry(tsn, &bnode->transitions, list) {
                 struct strider_ac_node *child = strider_ac_arena_zalloc(arena, sizeof(*child));
                 if (!child)
-                    return -ENOSPC;
+                    goto fail;
                 bytes[i] = tsn->byte;
                 children[i] = child;
                 ++i;
@@ -233,6 +233,14 @@ static int strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct stri
         list_replace(&bnode->outputs, &bnode->final->outputs);
     }
     return 0;
+
+fail: {
+        struct strider_ac_build_node *bnode, *tmp;
+        // clear the in-flight traversal queue
+        list_for_each_entry_safe(bnode, tmp, &queue, list)
+            list_del(&bnode->list);
+        return -ENOSPC;
+    }
 }
 
 static struct strider_ac_node *strider_ac_node_find_next(const struct strider_ac_node *node, u8 byte) {
