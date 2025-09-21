@@ -2,7 +2,6 @@
 
 #include <linux/align.h>
 #include <linux/bug.h>
-#include <linux/compiler.h>
 #include <linux/container_of.h>
 #include <linux/err.h>
 #include <linux/errno.h>
@@ -14,7 +13,8 @@
 #include <linux/vmalloc.h>
 
 #define STRIDER_AC_ALPHABET_SIZE 256
-#define STRIDER_AC_TRANSITIONS_DENSE_THRESHOLD 32
+#define STRIDER_AC_TRANSITIONS_DENSE_THRESHOLD 16
+#define STRIDER_AC_TRANSITIONS_ALWAYS_DENSE_DEPTH_LIMIT 1
 
 struct strider_ac_node {
     union {
@@ -24,7 +24,7 @@ struct strider_ac_node {
 
         struct {
             u8 *bytes;
-            struct strider_ac_node **children; // array sorted by bytes
+            struct strider_ac_node **children;
         } sparse;
     } transitions;
 
@@ -61,16 +61,12 @@ struct strider_ac_arena {
 };
 
 struct strider_ac {
-    enum {
-        STRIDER_AC_BUILDING,
-        STRIDER_AC_COMPILED,
-    } state;
-
     union {
         struct strider_ac_node *final;
         struct strider_ac_build_node *build;
     } root;
 
+    bool compiled;
     struct strider_ac_arena arena;
     struct rcu_head rcu;
 };
@@ -105,11 +101,10 @@ static void strider_ac_build_trie_destroy(struct strider_ac_build_node *broot) {
 }
 
 static void strider_ac_destroy(struct strider_ac *ac) {
-    if (ac->state == STRIDER_AC_BUILDING) {
+    if (!ac->compiled)
         strider_ac_build_trie_destroy(ac->root.build);
-    } else {
+    else
         vfree(ac->arena.head);
-    }
     kfree(ac);
 }
 
@@ -149,7 +144,8 @@ static size_t strider_ac_compute_size(struct strider_ac_build_node *broot) {
         struct strider_ac_build_node *bnode = list_first_entry(&queue, struct strider_ac_build_node, list);
         list_del(&bnode->list);
         ret += ALIGN(sizeof(struct strider_ac_node), sizeof(void *));
-        if (bnode->num_children > STRIDER_AC_TRANSITIONS_DENSE_THRESHOLD || bnode->depth < 2) {
+        if (bnode->num_children >= STRIDER_AC_TRANSITIONS_DENSE_THRESHOLD ||
+            bnode->depth <= STRIDER_AC_TRANSITIONS_ALWAYS_DENSE_DEPTH_LIMIT) {
             ret += ALIGN(STRIDER_AC_ALPHABET_SIZE * sizeof(struct strider_ac_node *), sizeof(void *));
         } else if (bnode->num_children > 0) {
             ret += ALIGN(bnode->num_children * sizeof(u8), sizeof(void *));
@@ -191,7 +187,8 @@ static int strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct stri
         struct strider_ac_build_node *bnode = list_first_entry(&queue, struct strider_ac_build_node, list);
         list_del(&bnode->list);
 
-        if (bnode->num_children > STRIDER_AC_TRANSITIONS_DENSE_THRESHOLD || bnode->depth < 2) {
+        if (bnode->num_children >= STRIDER_AC_TRANSITIONS_DENSE_THRESHOLD ||
+            bnode->depth <= STRIDER_AC_TRANSITIONS_ALWAYS_DENSE_DEPTH_LIMIT) {
             struct strider_ac_node **children = strider_ac_arena_zalloc(
                 arena, STRIDER_AC_ALPHABET_SIZE * sizeof(*children));
             if (!children)
@@ -243,12 +240,11 @@ static struct strider_ac_node *strider_ac_node_find_next(const struct strider_ac
         switch (node->transitions_type) {
             case STRIDER_AC_TRANSITIONS_DENSE:
                 return node->transitions.dense.children[byte];
-            case STRIDER_AC_TRANSITIONS_SPARSE: {
+            case STRIDER_AC_TRANSITIONS_SPARSE:
                 for (u16 i = 0; i < node->num_children; ++i) {
                     if (node->transitions.sparse.bytes[i] == byte)
                         return node->transitions.sparse.children[i];
                 }
-            }
         }
     }
     return NULL;
@@ -346,7 +342,7 @@ int strider_ac_compile(struct strider_ac *ac) {
     }
     strider_ac_link_nodes(broot);
     ac->root.final = broot->final;
-    ac->state = STRIDER_AC_COMPILED;
+    ac->compiled = true;
     strider_ac_build_trie_destroy(broot);
     return 0;
 }
