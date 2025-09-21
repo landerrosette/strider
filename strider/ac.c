@@ -181,6 +181,7 @@ static int strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct stri
     if (!root)
         return -ENOSPC;
     broot->final = root;
+
     LIST_HEAD(queue);
     list_add_tail(&broot->list, &queue);
     while (!list_empty(&queue)) {
@@ -232,6 +233,7 @@ static int strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct stri
 
         list_replace(&bnode->outputs, &bnode->final->outputs);
     }
+
     return 0;
 
 fail: {
