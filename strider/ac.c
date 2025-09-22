@@ -100,10 +100,10 @@ static void strider_ac_build_trie_destroy(struct strider_ac_build_node *root) {
 }
 
 static void strider_ac_destroy(struct strider_ac *ac) {
-    if (!ac->compiled)
-        strider_ac_build_trie_destroy(ac->root.build);
-    else
+    if (ac->compiled)
         vfree(ac->arena.head);
+    else
+        strider_ac_build_trie_destroy(ac->root.build);
     kfree(ac);
 }
 
