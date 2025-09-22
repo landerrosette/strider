@@ -160,10 +160,7 @@ static size_t strider_ac_compute_size(struct strider_ac_build_node *root) {
 
 static void *strider_ac_arena_alloc(struct strider_ac_arena *arena, size_t size) {
     size = ALIGN(size, sizeof(void *));
-    if (arena->bump + size > (u8 *) arena->head + arena->size) {
-        WARN_ON(1);
-        return NULL;
-    }
+    BUG_ON(arena->bump + size > (u8 *) arena->head + arena->size);
     void *ret = arena->bump;
     arena->bump += size;
     return ret;
@@ -176,10 +173,8 @@ static void *strider_ac_arena_zalloc(struct strider_ac_arena *arena, size_t size
     return ret;
 }
 
-static int strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct strider_ac_build_node *root) {
+static void strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct strider_ac_build_node *root) {
     struct strider_ac_node *final_root = strider_ac_arena_zalloc(arena, sizeof(*final_root));
-    if (!final_root)
-        return -ENOSPC;
     root->final = final_root;
 
     LIST_HEAD(queue);
@@ -192,13 +187,9 @@ static int strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct stri
             node->depth <= STRIDER_AC_TRANSITIONS_ALWAYS_DENSE_DEPTH_LIMIT) {
             struct strider_ac_node **children = strider_ac_arena_zalloc(
                 arena, STRIDER_AC_ALPHABET_SIZE * sizeof(*children));
-            if (!children)
-                goto fail;
             struct strider_ac_build_transition *tsn;
             list_for_each_entry(tsn, &node->transitions, list) {
                 struct strider_ac_node *child = strider_ac_arena_zalloc(arena, sizeof(*child));
-                if (!child)
-                    goto fail;
                 children[tsn->byte] = child;
                 tsn->next->final = child;
                 list_add_tail(&tsn->next->list, &queue);
@@ -208,17 +199,11 @@ static int strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct stri
             node->final->num_children = STRIDER_AC_ALPHABET_SIZE;
         } else if (node->num_children > 0) {
             u8 *bytes = strider_ac_arena_alloc(arena, node->num_children * sizeof(*bytes));
-            if (!bytes)
-                goto fail;
             struct strider_ac_node **children = strider_ac_arena_alloc(arena, node->num_children * sizeof(*children));
-            if (!children)
-                goto fail;
             u16 i = 0;
             struct strider_ac_build_transition *tsn;
             list_for_each_entry(tsn, &node->transitions, list) {
                 struct strider_ac_node *child = strider_ac_arena_zalloc(arena, sizeof(*child));
-                if (!child)
-                    goto fail;
                 bytes[i] = tsn->byte;
                 children[i] = child;
                 ++i;
@@ -232,16 +217,6 @@ static int strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct stri
         }
 
         list_replace(&node->outputs, &node->final->outputs);
-    }
-
-    return 0;
-
-fail: {
-        struct strider_ac_build_node *bnode, *tmp;
-        // clear the in-flight traversal queue
-        list_for_each_entry_safe(bnode, tmp, &queue, list)
-            list_del(&bnode->list);
-        return -ENOSPC;
     }
 }
 
@@ -267,7 +242,7 @@ static struct strider_ac_node *strider_ac_node_find_failure(const struct strider
         if (next)
             return next;
     }
-    // node is now root
+    // node is now root, since node == node->failure
     return strider_ac_node_find_next(node, byte);
 }
 
@@ -345,12 +320,10 @@ int strider_ac_compile(struct strider_ac *ac) {
     if (!ac->arena.head)
         return -ENOMEM;
     ac->arena.bump = ac->arena.head;
-    int ret = strider_ac_finalize_nodes(&ac->arena, root);
-    if (ret < 0) {
-        vfree(ac->arena.head);
-        return ret;
-    }
+
+    strider_ac_finalize_nodes(&ac->arena, root);
     strider_ac_link_nodes(root);
+
     ac->root.final = root->final;
     ac->compiled = true;
     strider_ac_build_trie_destroy(root);
