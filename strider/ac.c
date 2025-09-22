@@ -12,14 +12,13 @@
 #include <linux/types.h>
 #include <linux/vmalloc.h>
 
-#define STRIDER_AC_ALPHABET_SIZE 256
 #define STRIDER_AC_TRANSITIONS_DENSE_THRESHOLD 16
 #define STRIDER_AC_TRANSITIONS_ALWAYS_DENSE_DEPTH_LIMIT 1
 
 struct strider_ac_node {
     union {
         struct {
-            struct strider_ac_node **children; // array of size STRIDER_AC_ALPHABET_SIZE
+            struct strider_ac_node **children; // array of size 256
         } dense;
 
         struct {
@@ -146,7 +145,7 @@ static size_t strider_ac_compute_size(struct strider_ac_build_node *root) {
         ret += ALIGN(sizeof(struct strider_ac_node), sizeof(void *));
         if (node->num_children >= STRIDER_AC_TRANSITIONS_DENSE_THRESHOLD ||
             node->depth <= STRIDER_AC_TRANSITIONS_ALWAYS_DENSE_DEPTH_LIMIT) {
-            ret += ALIGN(STRIDER_AC_ALPHABET_SIZE * sizeof(struct strider_ac_node *), sizeof(void *));
+            ret += ALIGN(256 * sizeof(struct strider_ac_node *), sizeof(void *));
         } else if (node->num_children > 0) {
             ret += ALIGN(node->num_children * sizeof(u8), sizeof(void *));
             ret += ALIGN(node->num_children * sizeof(struct strider_ac_node *), sizeof(void *));
@@ -185,8 +184,7 @@ static void strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct str
 
         if (node->num_children >= STRIDER_AC_TRANSITIONS_DENSE_THRESHOLD ||
             node->depth <= STRIDER_AC_TRANSITIONS_ALWAYS_DENSE_DEPTH_LIMIT) {
-            struct strider_ac_node **children = strider_ac_arena_zalloc(
-                arena, STRIDER_AC_ALPHABET_SIZE * sizeof(*children));
+            struct strider_ac_node **children = strider_ac_arena_zalloc(arena, 256 * sizeof(*children));
             struct strider_ac_build_transition *tsn;
             list_for_each_entry(tsn, &node->transitions, list) {
                 struct strider_ac_node *child = strider_ac_arena_zalloc(arena, sizeof(*child));
@@ -196,7 +194,7 @@ static void strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct str
             }
             node->final->transitions.dense.children = children;
             node->final->transitions_type = STRIDER_AC_TRANSITIONS_DENSE;
-            node->final->num_children = STRIDER_AC_ALPHABET_SIZE;
+            node->final->num_children = 256;
         } else if (node->num_children > 0) {
             u8 *bytes = strider_ac_arena_alloc(arena, node->num_children * sizeof(*bytes));
             struct strider_ac_node **children = strider_ac_arena_alloc(arena, node->num_children * sizeof(*children));
