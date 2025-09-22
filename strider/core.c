@@ -291,7 +291,8 @@ struct strider_set *strider_set_get(struct net *net, const char *set_name) {
 EXPORT_SYMBOL_GPL(strider_set_get);
 
 void strider_set_put(struct strider_set *set) {
-    __strider_set_put(set);
+    if (set)
+        __strider_set_put(set);
 }
 
 EXPORT_SYMBOL_GPL(strider_set_put);
