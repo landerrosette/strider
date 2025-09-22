@@ -2,6 +2,7 @@
 
 #include <linux/align.h>
 #include <linux/bug.h>
+#include <linux/compiler.h>
 #include <linux/container_of.h>
 #include <linux/err.h>
 #include <linux/errno.h>
@@ -218,8 +219,8 @@ static void strider_ac_finalize_nodes(struct strider_ac_arena *arena, struct str
     }
 }
 
-static struct strider_ac_node *strider_ac_node_find_next(const struct strider_ac_node *node, u8 byte) {
-    if (node->num_children > 0) {
+static __always_inline struct strider_ac_node *strider_ac_node_find_next(const struct strider_ac_node *node, u8 byte) {
+    if (likely(node->num_children > 0)) {
         switch (node->transitions_type) {
             case STRIDER_AC_TRANSITIONS_DENSE:
                 return node->transitions.dense.children[byte];
