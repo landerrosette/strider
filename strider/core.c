@@ -57,8 +57,8 @@ static void strider_sets_destroy_all(struct strider_net *sn) {
     struct strider_set *set;
     struct hlist_node *tmp;
     int bkt;
-    hash_for_each_safe(sn->strider_sets_ht, bkt, tmp, set, node) {
-        hash_del(&set->node);
+    hash_for_each_safe(sn->strider_sets_ht, bkt, tmp, set, list) {
+        hash_del(&set->list);
         if (refcount_dec_and_test(&set->refcount))
             strider_set_destroy(set);
         else
@@ -71,7 +71,7 @@ static struct strider_set *strider_set_lookup_locked(struct strider_net *sn, con
 __must_hold(&sn->strider_sets_ht_lock) {
     u32 hash_key = jhash(set_name, strlen(set_name), 0);
     struct strider_set *set;
-    hash_for_each_possible(sn->strider_sets_ht, set, node, hash_key) {
+    hash_for_each_possible(sn->strider_sets_ht, set, list, hash_key) {
         if (strcmp(set->name, set_name) == 0)
             return set;
     }
@@ -177,7 +177,7 @@ int strider_set_create(struct net *net, const char *set_name) {
         ret = -EEXIST;
         goto fail_unlock;
     }
-    hash_add(sn->strider_sets_ht, &new_set->node, jhash(new_set->name, strlen(new_set->name), 0));
+    hash_add(sn->strider_sets_ht, &new_set->list, jhash(new_set->name, strlen(new_set->name), 0));
     up_write(&sn->strider_sets_ht_lock);
 
     pr_debug("set '%s': created\n", new_set->name);
@@ -203,7 +203,7 @@ int strider_set_unlink(struct net *net, const char *set_name) {
         up_write(&sn->strider_sets_ht_lock);
         return -EBUSY;
     }
-    hash_del(&set->node);
+    hash_del(&set->list);
     up_write(&sn->strider_sets_ht_lock);
     pr_debug("set '%s': unlinked\n", set->name);
     __strider_set_put(set);

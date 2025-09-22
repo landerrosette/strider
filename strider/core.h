@@ -21,7 +21,7 @@ struct strider_pattern {
 struct strider_set {
     struct strider_ac __rcu *ac;
     struct mutex lock;
-    struct hlist_node node;
+    struct hlist_node list;
     struct rcu_head rcu;
     refcount_t refcount;
     struct list_head patterns;
