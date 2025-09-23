@@ -160,7 +160,7 @@ static size_t strider_ac_compute_size(struct strider_ac_build_node *root) {
 
 static void *strider_ac_arena_alloc(struct strider_ac_arena *arena, size_t size) {
     size = ALIGN(size, sizeof(void *));
-    BUG_ON(arena->bump + size > (u8 *) arena->head + arena->size);
+    WARN_ON(arena->bump + size > (u8 *) arena->head + arena->size);
     void *ret = arena->bump;
     arena->bump += size;
     return ret;
@@ -168,8 +168,7 @@ static void *strider_ac_arena_alloc(struct strider_ac_arena *arena, size_t size)
 
 static void *strider_ac_arena_zalloc(struct strider_ac_arena *arena, size_t size) {
     void *ret = strider_ac_arena_alloc(arena, size);
-    if (ret)
-        memset(ret, 0, size);
+    memset(ret, 0, size);
     return ret;
 }
 
