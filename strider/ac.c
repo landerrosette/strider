@@ -13,7 +13,7 @@
 #include <linux/types.h>
 #include <linux/vmalloc.h>
 
-#define STRIDER_AC_TRANSITIONS_DENSE_THRESHOLD 16
+#define STRIDER_AC_TRANSITIONS_DENSE_THRESHOLD 128
 #define STRIDER_AC_TRANSITIONS_ALWAYS_DENSE_DEPTH_LIMIT 1
 
 struct strider_ac_node {
