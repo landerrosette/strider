@@ -12,6 +12,7 @@ struct strider_ac_target {
 };
 
 struct strider_ac_match_state {
+    const struct strider_ac *ac;
     u32 state_id;
 };
 
