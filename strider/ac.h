@@ -13,7 +13,7 @@ struct strider_ac_target {
 
 struct strider_ac_match_state {
     const struct strider_ac *ac;
-    u32 state_id;
+    u32 ac_state;
 };
 
 struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target)(void *ctx), void *iter_ctx);
