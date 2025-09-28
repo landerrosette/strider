@@ -5,7 +5,6 @@
 #include <linux/bitops.h>
 #include <linux/container_of.h>
 #include <linux/err.h>
-#include <linux/gfp.h>
 #include <linux/module.h>
 #include <linux/rcupdate.h>
 #include <linux/string.h>
@@ -23,8 +22,19 @@ struct strider_ac_test_match_info {
     unsigned int found_id_mask;
 };
 
+struct strider_ac_test_target_iter_ctx {
+    const struct strider_ac_test_target *targets;
+    int idx;
+};
+
+struct strider_ac_test_target_iter {
+    const struct strider_ac_target *(*get_target)(void *ctx);
+    struct strider_ac_test_target_iter_ctx *iter_ctx;
+};
+
 static int strider_ac_test_resource_init(struct kunit_resource *res, void *ctx) {
-    struct strider_ac *ac = strider_ac_create(GFP_KERNEL);
+    struct strider_ac_test_target_iter *iter = ctx;
+    struct strider_ac *ac = strider_ac_build(iter->get_target, iter->iter_ctx);
     if (IS_ERR(ac))
         return PTR_ERR(ac);
     res->data = ac;
@@ -35,10 +45,17 @@ static void strider_ac_test_resource_free(struct kunit_resource *res) {
     strider_ac_schedule_destroy(res->data);
 }
 
+static const struct strider_ac_target *strider_ac_test_get_target(void *ctx) {
+    struct strider_ac_test_target_iter_ctx *iter_ctx = ctx;
+    if (iter_ctx->targets[iter_ctx->idx].id == -1)
+        return NULL;
+    return &iter_ctx->targets[iter_ctx->idx++].ac_target;
+}
+
 static int strider_ac_test_match_cb(const struct strider_ac_target *ac_target, size_t pos, void *ctx) {
     struct strider_ac_test_match_info *info = ctx;
     ++info->match_count;
-    int found_id = container_of(ac_target, struct strider_ac_test_target, ac_target)->id;
+    unsigned int found_id = container_of(ac_target, struct strider_ac_test_target, ac_target)->id;
     KUNIT_ASSERT_LT(info->test, found_id, STRIDER_AC_TEST_MAX_TARGETS);
     info->found_id_mask |= 1U << found_id;
     return 0;
@@ -46,23 +63,24 @@ static int strider_ac_test_match_cb(const struct strider_ac_target *ac_target, s
 
 static void strider_ac_test_case_run(struct kunit *test, const char *patterns[], const char *data,
                                      int expected_match_count, unsigned int expected_id_mask) {
-    struct strider_ac *ac = kunit_alloc_resource(test, strider_ac_test_resource_init, strider_ac_test_resource_free,
-                                                 GFP_KERNEL, NULL);
-    KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ac);
-    int ret = 0;
-    struct strider_ac_test_target targets[STRIDER_AC_TEST_MAX_TARGETS];
-    for (int i = 0; patterns[i]; ++i) {
+    struct strider_ac_test_target targets[STRIDER_AC_TEST_MAX_TARGETS + 1];
+    int i;
+    for (i = 0; patterns[i]; ++i) {
         targets[i] = (struct strider_ac_test_target){
             .ac_target = (struct strider_ac_target){
                 .pattern = (const u8 *) patterns[i], .pattern_len = strlen(patterns[i])
             },
             .id = i,
         };
-        ret = strider_ac_add_target(ac, &targets[i].ac_target, GFP_KERNEL);
-        KUNIT_ASSERT_GE(test, ret, 0);
     }
-    ret = strider_ac_compile(ac);
-    KUNIT_ASSERT_GE(test, ret, 0);
+    targets[i].id = -1;
+    struct strider_ac_test_target_iter iter = {
+        strider_ac_test_get_target,
+        &(struct strider_ac_test_target_iter_ctx){targets, 0},
+    };
+    struct strider_ac *ac = kunit_alloc_resource(test, strider_ac_test_resource_init, strider_ac_test_resource_free,
+                                                 GFP_KERNEL, &iter);
+    KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ac);
 
     struct strider_ac_test_match_info info = {.test = test};
     struct strider_ac_match_state state;
@@ -130,18 +148,12 @@ static struct kunit_case strider_ac_test_cases[] = {
     {}
 };
 
-static int strider_ac_test_suite_init(struct kunit_suite *suite) {
-    return strider_ac_caches_create();
-}
-
 static void strider_ac_test_suite_exit(struct kunit_suite *suite) {
-    strider_ac_caches_destroy();
     rcu_barrier();
 }
 
 static struct kunit_suite strider_ac_test_suite = {
     .name = "strider_ac",
-    .suite_init = strider_ac_test_suite_init,
     .suite_exit = strider_ac_test_suite_exit,
     .test_cases = strider_ac_test_cases,
 };
