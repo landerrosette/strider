@@ -174,9 +174,12 @@ static void strider_ac_trie_reset_state_ids(struct strider_ac_build_trie *trie) 
 
 static int strider_ac_trie_assign_state_ids(struct strider_ac_build_trie *trie) {
     size_t num_states = trie->num_nodes;
-    size_t arr_size = num_states + num_states / 4; // 125%
+    size_t arr_size = num_states;
 
 retry_arr_size:;
+    arr_size = size_mul(arr_size, 2);
+    if (arr_size == SIZE_MAX)
+        return -ENOMEM;
     u32 *check = kvcalloc(arr_size, sizeof(*check), GFP_KERNEL);
     if (!check)
         return -ENOMEM;
@@ -195,9 +198,6 @@ retry_arr_size:;
             if (base_val + tsn->byte >= arr_size) {
                 strider_ac_trie_reset_state_ids(trie);
                 kvfree(check);
-                arr_size = size_mul(arr_size, 2);
-                if (arr_size == SIZE_MAX)
-                    return -ENOMEM;
                 goto retry_arr_size;
             }
             if (check[base_val + tsn->byte] != 0) {
