@@ -16,20 +16,20 @@ struct strider_ac_test_target {
     int id;
 };
 
-struct strider_ac_test_match_info {
-    struct kunit *test;
-    int match_count;
-    unsigned int found_id_mask;
-};
-
 struct strider_ac_test_target_iter_ctx {
     const struct strider_ac_test_target *targets;
-    int idx;
+    int pos;
 };
 
 struct strider_ac_test_target_iter {
     const struct strider_ac_target *(*get_target)(void *ctx);
     struct strider_ac_test_target_iter_ctx *iter_ctx;
+};
+
+struct strider_ac_test_match_info {
+    struct kunit *test;
+    int match_count;
+    unsigned int found_id_mask;
 };
 
 static int strider_ac_test_resource_init(struct kunit_resource *res, void *ctx) {
@@ -47,9 +47,9 @@ static void strider_ac_test_resource_free(struct kunit_resource *res) {
 
 static const struct strider_ac_target *strider_ac_test_get_target(void *ctx) {
     struct strider_ac_test_target_iter_ctx *iter_ctx = ctx;
-    if (iter_ctx->targets[iter_ctx->idx].id == -1)
+    if (iter_ctx->targets[iter_ctx->pos].id == -1)
         return NULL;
-    return &iter_ctx->targets[iter_ctx->idx++].ac_target;
+    return &iter_ctx->targets[iter_ctx->pos++].ac_target;
 }
 
 static int strider_ac_test_match_cb(const struct strider_ac_target *ac_target, size_t pos, void *ctx) {
@@ -130,12 +130,16 @@ static void test_nested_prefix_suffix_outputs(struct kunit *test) {
                              1U << 0 | 1U << 1 | 1U << 2);
 }
 
-static void test_no_match_result(struct kunit *test) {
+static void test_no_match(struct kunit *test) {
     strider_ac_test_case_run(test,
                              (const char *[]){"hello", "world", NULL},
                              "well, hi there",
                              0,
                              0);
+}
+
+static void test_no_pattern(struct kunit *test) {
+    strider_ac_test_case_run(test, (const char *[]){NULL}, "whatever", 0, 0);
 }
 
 static struct kunit_case strider_ac_test_cases[] = {
@@ -144,7 +148,8 @@ static struct kunit_case strider_ac_test_cases[] = {
     KUNIT_CASE(test_repeated_char_overlaps),
     KUNIT_CASE(test_shared_prefix_varied_lengths),
     KUNIT_CASE(test_nested_prefix_suffix_outputs),
-    KUNIT_CASE(test_no_match_result),
+    KUNIT_CASE(test_no_match),
+    KUNIT_CASE(test_no_pattern),
     {}
 };
 
