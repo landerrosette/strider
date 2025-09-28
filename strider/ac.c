@@ -1,6 +1,5 @@
 #include "ac.h"
 
-#include <linux/compiler.h>
 #include <linux/container_of.h>
 #include <linux/err.h>
 #include <linux/errno.h>
