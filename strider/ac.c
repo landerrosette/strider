@@ -118,11 +118,13 @@ static int strider_ac_build_trie_add_targets(struct strider_ac_build_trie *trie,
             }
             node = child;
         }
-        struct strider_ac_output *out = kmalloc(sizeof(*out), GFP_KERNEL);
-        if (!out)
-            return -ENOMEM;
-        out->target = target;
-        list_add(&out->list, &node->outputs);
+        if (node != trie->root) {
+            struct strider_ac_output *out = kmalloc(sizeof(*out), GFP_KERNEL);
+            if (!out)
+                return -ENOMEM;
+            out->target = target;
+            list_add(&out->list, &node->outputs);
+        }
     }
     return 0;
 }
