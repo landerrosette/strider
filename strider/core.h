@@ -4,29 +4,11 @@
 
 #include <linux/compiler.h>
 #include <linux/init.h>
-#include <linux/mutex.h>
-#include <linux/refcount.h>
 #include <linux/types.h>
 #include <strider/strider.h>
-#include <strider/uapi/limits.h>
 
-#include "ac.h"
-
-struct strider_pattern {
-    struct list_head list;
-    struct strider_ac_target ac_target;
-    u8 data[];
-};
-
-struct strider_set {
-    struct strider_ac __rcu *ac;
-    struct mutex lock;
-    struct hlist_node list;
-    struct rcu_head rcu;
-    refcount_t refcount;
-    struct list_head patterns;
-    char name[STRIDER_MAX_SET_NAME_SIZE];
-};
+struct strider_ac;
+struct strider_set;
 
 int __init strider_core_init(void);
 void strider_core_exit(void);

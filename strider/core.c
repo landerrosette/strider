@@ -11,6 +11,7 @@
 #include <linux/list.h>
 #include <linux/lockdep.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/printk.h>
 #include <linux/rcupdate.h>
 #include <linux/refcount.h>
@@ -23,7 +24,30 @@
 #include <net/netns/generic.h>
 #include <strider/uapi/limits.h>
 
+#include "ac.h"
+
 #define STRIDER_SETS_HASH_BITS 4
+
+struct strider_set {
+    struct strider_ac __rcu *ac;
+    struct mutex lock;
+    struct hlist_node list;
+    struct rcu_head rcu;
+    refcount_t refcount;
+    struct list_head patterns;
+    char name[STRIDER_MAX_SET_NAME_SIZE];
+};
+
+struct strider_pattern {
+    struct list_head list;
+    struct strider_ac_target ac_target;
+    u8 data[];
+};
+
+struct strider_pattern_iter_ctx {
+    struct list_head *head;
+    struct list_head *pos;
+};
 
 struct strider_net {
     DECLARE_HASHTABLE(strider_sets_ht, STRIDER_SETS_HASH_BITS);
@@ -96,27 +120,26 @@ static void __strider_set_put(struct strider_set *set) {
         strider_set_destroy(set);
 }
 
+static const struct strider_ac_target *strider_pattern_get_target(void *ctx) {
+    struct strider_pattern_iter_ctx *iter_ctx = ctx;
+    if (list_is_head(iter_ctx->pos, iter_ctx->head))
+        return NULL;
+    const struct strider_ac_target *ret = &list_entry(iter_ctx->pos, struct strider_pattern, list)->ac_target;
+    iter_ctx->pos = iter_ctx->pos->next;
+    return ret;
+}
+
 static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&set->lock) {
-    struct strider_ac *new_ac = strider_ac_create(GFP_KERNEL);
+    struct strider_pattern_iter_ctx iter_ctx = {&set->patterns, set->patterns.next};
+    struct strider_ac *new_ac = !list_empty(&set->patterns)
+                                    ? strider_ac_build(strider_pattern_get_target, &iter_ctx)
+                                    : NULL;
     if (IS_ERR(new_ac))
         return PTR_ERR(new_ac);
-    struct strider_pattern *entry;
-    int ret = 0;
-    list_for_each_entry(entry, &set->patterns, list) {
-        ret = strider_ac_add_target(new_ac, &entry->ac_target, GFP_KERNEL);
-        if (ret < 0)
-            goto fail;
-    }
-    ret = strider_ac_compile(new_ac);
-    if (ret < 0)
-        goto fail;
     struct strider_ac *old_ac = rcu_replace_pointer(set->ac, new_ac, lockdep_is_held(&set->lock));
     if (old_ac)
         strider_ac_schedule_destroy(old_ac);
-    return ret;
-fail:
-    strider_ac_schedule_destroy(new_ac);
-    return ret;
+    return 0;
 }
 
 static int __net_init strider_net_init(struct net *net) {
@@ -138,20 +161,11 @@ static struct pernet_operations strider_net_ops __read_mostly = {
 };
 
 int __init strider_core_init(void) {
-    int ret = strider_ac_caches_create();
-    if (ret < 0)
-        return ret;
-    ret = register_pernet_subsys(&strider_net_ops);
-    if (ret < 0) {
-        strider_ac_caches_destroy();
-        return ret;
-    }
-    return ret;
+    return register_pernet_subsys(&strider_net_ops);
 }
 
 void strider_core_exit(void) {
     unregister_pernet_subsys(&strider_net_ops);
-    strider_ac_caches_destroy();
     rcu_barrier();
 }
 
@@ -172,8 +186,7 @@ int strider_set_create(struct net *net, const char *set_name) {
 
     struct strider_net *sn = strider_pernet(net);
     down_write(&sn->strider_sets_ht_lock);
-    struct strider_set *set = strider_set_lookup_locked(sn, new_set->name);
-    if (set) {
+    if (strider_set_lookup_locked(sn, new_set->name)) {
         ret = -EEXIST;
         goto fail_unlock;
     }
