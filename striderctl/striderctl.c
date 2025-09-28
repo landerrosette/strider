@@ -83,15 +83,15 @@ static int validate_set_name(const char *set_name) {
 }
 
 static int parse_hex_string(const char *s, struct strider_pattern *pattern) {
-    int idx = 0;
+    int pos = 0;
     bool hex_flag = false, literal_flag = false;
     int len = strlen(s);
     if (len == 0) {
         fprintf(stderr, "%s: PATTERN cannot be empty\n", program_name);
         return -1;
     }
-    for (int i = 0; i < len; ++idx) {
-        if (idx >= STRIDER_MAX_PATTERN_SIZE) {
+    for (int i = 0; i < len; ++pos) {
+        if (pos >= STRIDER_MAX_PATTERN_SIZE) {
             fprintf(stderr, "%s: PATTERN too long\n", program_name);
             return -1;
         }
@@ -117,7 +117,7 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern) {
                 fprintf(stderr, "%s: bad literal placement at end of string\n", program_name);
                 return -1;
             }
-            pattern->data[idx] = s[i + 1];
+            pattern->data[pos] = s[i + 1];
             i += 2;
             literal_flag = false;
         } else if (hex_flag) {
@@ -136,15 +136,15 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern) {
                 fprintf(stderr, "%s: invalid hex digit '%c'\n", program_name, *endptr);
                 return -1;
             }
-            pattern->data[idx] = val;
+            pattern->data[pos] = val;
             if (s[i + 2] == ' ') // space included in the hex block
                 i += 3;
             else
                 i += 2;
         } else
-            pattern->data[idx] = s[i++]; // the char is not part of hex data, so just copy
+            pattern->data[pos] = s[i++]; // the char is not part of hex data, so just copy
     }
-    pattern->len = idx;
+    pattern->len = pos;
     return 0;
 }
 
