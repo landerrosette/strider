@@ -132,7 +132,7 @@ static int strider_ac_build_trie_add_targets(struct strider_ac_build_trie *trie,
 static void strider_ac_build_trie_link_failures(struct strider_ac_build_trie *trie) {
     trie->root->failure = trie->root;
     LIST_HEAD(queue);
-    struct strider_ac_build_transition *tsn;
+    const struct strider_ac_build_transition *tsn;
     list_for_each_entry(tsn, &trie->root->transitions, list) {
         tsn->next->failure = trie->root;
         list_add_tail(&tsn->next->bfs_list, &queue);
@@ -165,7 +165,7 @@ static void strider_ac_trie_reset_state_ids(struct strider_ac_build_trie *trie) 
         struct strider_ac_build_node *node = list_first_entry(&queue, struct strider_ac_build_node, bfs_list);
         list_del(&node->bfs_list);
         node->state_id = 0;
-        struct strider_ac_build_transition *tsn;
+        const struct strider_ac_build_transition *tsn;
         list_for_each_entry(tsn, &node->transitions, list)
             list_add_tail(&tsn->next->bfs_list, &queue);
     }
@@ -193,7 +193,7 @@ retry_arr_size:;
 
         u32 base_val = 1;
     retry_base_val:;
-        struct strider_ac_build_transition *tsn;
+        const struct strider_ac_build_transition *tsn;
         list_for_each_entry(tsn, &node->transitions, list) {
             if (base_val + tsn->byte >= arr_size) {
                 strider_ac_trie_reset_state_ids(trie);
@@ -274,7 +274,7 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
         ac->failures[node->state_id] = node->failure->state_id;
         list_replace_init(&node->outputs, &ac->outputs[node->state_id]);
 
-        struct strider_ac_build_transition *tsn;
+        const struct strider_ac_build_transition *tsn;
         list_for_each_entry(tsn, &node->transitions, list) {
             struct strider_ac_build_node *child = tsn->next;
             ac->check[child->state_id] = node->state_id;
