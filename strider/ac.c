@@ -231,27 +231,27 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
     trie->root = root;
     ++trie->num_nodes;
 
-    int ret = strider_ac_build_trie_add_targets(trie, get_target, iter_ctx);
+    int ret = strider_ac_trie_add_targets(trie, get_target, iter_ctx);
     if (ret < 0) {
-        strider_ac_build_trie_destroy(trie);
+        strider_ac_trie_destroy(trie);
         return ERR_PTR(ret);
     }
-    strider_ac_build_trie_link_failures(trie);
+    strider_ac_trie_link_failures(trie);
     ret = strider_ac_trie_assign_state_ids(trie);
     if (ret < 0) {
-        strider_ac_build_trie_destroy(trie);
+        strider_ac_trie_destroy(trie);
         return ERR_PTR(ret);
     }
 
     size_t ac_data_size = array3_size(3, trie->max_state_id + 1, sizeof(u32));
     ac_data_size = size_add(ac_data_size, array_size(trie->max_state_id + 1, sizeof(struct list_head)));
     if (ac_data_size == SIZE_MAX) {
-        strider_ac_build_trie_destroy(trie);
+        strider_ac_trie_destroy(trie);
         return ERR_PTR(-ENOMEM);
     }
     struct strider_ac *ac = kvzalloc(struct_size(ac, data, ac_data_size), GFP_KERNEL);
     if (!ac) {
-        strider_ac_build_trie_destroy(trie);
+        strider_ac_trie_destroy(trie);
         return ERR_PTR(-ENOMEM);
     }
     ac->arr_size = trie->max_state_id + 1;
@@ -259,7 +259,7 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
     ac->check = ac->base + ac->arr_size;
     ac->failures = ac->check + ac->arr_size;
     ac->outputs = (struct list_head *) (ac->failures + ac->arr_size);
-    for (size_t i = 1; i < ac->arr_size; ++i)
+    for (size_t i = 0; i < ac->arr_size; ++i)
         INIT_LIST_HEAD(&ac->outputs[i]);
 
     LIST_HEAD(queue);
@@ -285,7 +285,7 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
 }
 
 static void strider_ac_destroy(struct strider_ac *ac) {
-    for (size_t i = 1; i < ac->arr_size; ++i) {
+    for (size_t i = 0; i < ac->arr_size; ++i) {
         struct strider_ac_output *out, *tmp;
         list_for_each_entry_safe(out, tmp, &ac->outputs[i], list) {
             list_del(&out->list);
