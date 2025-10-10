@@ -259,8 +259,8 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
     // This avoids frequent branch mispredictions on worst case input.
     if (arr_size < trie->root->base_val + 256)
         arr_size = trie->root->base_val + 256;
-    size_t ac_data_size = array3_size(3, arr_size, sizeof(u32));
-    ac_data_size = size_add(ac_data_size, array_size(arr_size, sizeof(struct list_head)));
+    size_t ac_data_size = array3_size(3, arr_size, sizeof(u32));                           // base, check, failures
+    ac_data_size = size_add(ac_data_size, array_size(arr_size, sizeof(struct list_head))); // outputs
     if (ac_data_size == SIZE_MAX) {
         strider_ac_trie_destroy(trie);
         return ERR_PTR(-ENOMEM);
