@@ -20,7 +20,7 @@ struct strider_ac_node {
     struct strider_ac_node *failure;
     u32 state_id;
     u32 base_val;
-    struct list_head bfs_list;
+    struct list_head list; // for traversal
 };
 
 struct strider_ac_transition {
@@ -79,10 +79,10 @@ static struct strider_ac_node *strider_ac_node_add_child(struct strider_ac_node 
 
 static void strider_ac_trie_destroy(struct strider_ac_trie *trie) {
     LIST_HEAD(queue);
-    list_add_tail(&trie->root->bfs_list, &queue);
+    list_add_tail(&trie->root->list, &queue);
     while (!list_empty(&queue)) {
-        struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, bfs_list);
-        list_del(&node->bfs_list);
+        struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, list);
+        list_del(&node->list);
         {
             struct strider_ac_output *out, *tmp;
             list_for_each_entry_safe(out, tmp, &node->outputs, list) {
@@ -93,7 +93,7 @@ static void strider_ac_trie_destroy(struct strider_ac_trie *trie) {
         {
             struct strider_ac_transition *tsn, *tmp;
             list_for_each_entry_safe(tsn, tmp, &node->transitions, list) {
-                list_add_tail(&tsn->next->bfs_list, &queue);
+                list_add_tail(&tsn->next->list, &queue);
                 list_del(&tsn->list);
                 kfree(tsn);
             }
@@ -133,11 +133,11 @@ static void strider_ac_trie_link_failures(struct strider_ac_trie *trie) {
     const struct strider_ac_transition *tsn;
     list_for_each_entry(tsn, &trie->root->transitions, list) {
         tsn->next->failure = trie->root;
-        list_add_tail(&tsn->next->bfs_list, &queue);
+        list_add_tail(&tsn->next->list, &queue);
     }
     while (!list_empty(&queue)) {
-        struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, bfs_list);
-        list_del(&node->bfs_list);
+        struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, list);
+        list_del(&node->list);
         list_for_each_entry(tsn, &node->transitions, list) {
             struct strider_ac_node *child = tsn->next;
             for (const struct strider_ac_node *f = node->failure; ; f = f->failure) {
@@ -151,21 +151,21 @@ static void strider_ac_trie_link_failures(struct strider_ac_trie *trie) {
                     break;
                 }
             }
-            list_add_tail(&child->bfs_list, &queue);
+            list_add_tail(&child->list, &queue);
         }
     }
 }
 
 static void strider_ac_trie_reset_state_ids(struct strider_ac_trie *trie) {
     LIST_HEAD(queue);
-    list_add_tail(&trie->root->bfs_list, &queue);
+    list_add_tail(&trie->root->list, &queue);
     while (!list_empty(&queue)) {
-        struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, bfs_list);
-        list_del(&node->bfs_list);
+        struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, list);
+        list_del(&node->list);
         node->state_id = 0;
         const struct strider_ac_transition *tsn;
         list_for_each_entry(tsn, &node->transitions, list)
-            list_add_tail(&tsn->next->bfs_list, &queue);
+            list_add_tail(&tsn->next->list, &queue);
     }
     trie->max_state_id = 0;
 }
@@ -183,11 +183,11 @@ retry_arr_size:;
         return -ENOMEM;
 
     trie->root->state_id = 1;
-    LIST_HEAD(queue);
-    list_add_tail(&trie->root->bfs_list, &queue);
-    while (!list_empty(&queue)) {
-        struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, bfs_list);
-        list_del(&node->bfs_list);
+    LIST_HEAD(stack);
+    list_add(&trie->root->list, &stack);
+    while (!list_empty(&stack)) {
+        struct strider_ac_node *node = list_first_entry(&stack, struct strider_ac_node, list);
+        list_del(&node->list);
 
         u32 base_val = 1;
     retry_base_val:;
@@ -209,7 +209,7 @@ retry_arr_size:;
             struct strider_ac_node *child = tsn->next;
             child->state_id = base_val + tsn->byte;
             check[child->state_id] = node->state_id;
-            list_add_tail(&child->bfs_list, &queue);
+            list_add(&child->list, &stack);
         }
         if (node->state_id > trie->max_state_id)
             trie->max_state_id = node->state_id;
@@ -230,7 +230,6 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
     }
     trie->root = root;
     ++trie->num_nodes;
-
     int ret = strider_ac_trie_add_targets(trie, get_target, iter_ctx);
     if (ret < 0) {
         strider_ac_trie_destroy(trie);
@@ -269,20 +268,20 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
         INIT_LIST_HEAD(&ac->outputs[i]);
 
     LIST_HEAD(queue);
-    list_add_tail(&trie->root->bfs_list, &queue);
+    list_add_tail(&trie->root->list, &queue);
     while (!list_empty(&queue)) {
-        struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, bfs_list);
-        list_del(&node->bfs_list);
+        struct strider_ac_node *node = list_first_entry(&queue, struct strider_ac_node, list);
+        list_del(&node->list);
 
         ac->base[node->state_id] = node->base_val;
         ac->failures[node->state_id] = node->failure->state_id;
-        list_replace_init(&node->outputs, &ac->outputs[node->state_id]);
+        list_replace_init(&node->outputs, &ac->outputs[node->state_id]); // steal list of outputs
 
         const struct strider_ac_transition *tsn;
         list_for_each_entry(tsn, &node->transitions, list) {
             struct strider_ac_node *child = tsn->next;
             ac->check[child->state_id] = node->state_id;
-            list_add_tail(&child->bfs_list, &queue);
+            list_add_tail(&child->list, &queue);
         }
     }
 
