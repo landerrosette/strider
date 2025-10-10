@@ -4,6 +4,7 @@
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/list.h>
+#include <linux/list_sort.h>
 #include <linux/overflow.h>
 #include <linux/rcupdate.h>
 #include <linux/slab.h>
@@ -103,7 +104,8 @@ static void strider_ac_trie_destroy(struct strider_ac_trie *trie) {
     kfree(trie);
 }
 
-static int strider_ac_trie_add_targets(struct strider_ac_trie *trie, const struct strider_ac_target *(*get_target)(void *ctx), void *iter_ctx) {
+static int strider_ac_trie_add_targets(struct strider_ac_trie *trie,
+                                       const struct strider_ac_target *(*get_target)(void *ctx), void *iter_ctx) {
     for (const struct strider_ac_target *target; (target = get_target(iter_ctx));) {
         struct strider_ac_node *node = trie->root;
         for (size_t i = 0; i < target->pattern_len; ++i) {
@@ -170,6 +172,12 @@ static void strider_ac_trie_reset_state_ids(struct strider_ac_trie *trie) {
     trie->max_state_id = 0;
 }
 
+static int strider_ac_transition_cmp(void *priv, const struct list_head *a, const struct list_head *b) {
+    const struct strider_ac_transition *tsn_a = list_entry(a, struct strider_ac_transition, list);
+    const struct strider_ac_transition *tsn_b = list_entry(b, struct strider_ac_transition, list);
+    return tsn_a->byte - tsn_b->byte;
+}
+
 static int strider_ac_trie_assign_state_ids(struct strider_ac_trie *trie) {
     size_t num_states = trie->num_nodes;
     size_t arr_size = num_states;
@@ -188,6 +196,8 @@ retry_arr_size:;
     while (!list_empty(&stack)) {
         struct strider_ac_node *node = list_first_entry(&stack, struct strider_ac_node, list);
         list_del(&node->list);
+
+        list_sort(NULL, &node->transitions, strider_ac_transition_cmp);
 
         u32 base_val = 1;
     retry_base_val:;
