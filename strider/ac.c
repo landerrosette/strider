@@ -182,7 +182,7 @@ static int strider_ac_trie_assign_state_ids(struct strider_ac_trie *trie) {
     size_t num_states = trie->num_nodes;
     size_t arr_size = num_states;
 
-retry_arr_size:;
+retry_arr_size:
     arr_size = size_mul(arr_size, 2);
     if (arr_size == SIZE_MAX)
         return -ENOMEM;
