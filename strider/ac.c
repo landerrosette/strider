@@ -253,7 +253,8 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
     }
 
     size_t arr_size = trie->max_state_id + 1;
-    // Make sure arr_size is large enough so that the bounds check in the match function is predictable for the root state.
+    // Make sure arr_size is large enough so that
+    // the bounds check in the match function is predictable for the root state.
     // For any byte c (0-255), we want base[1] + c < arr_size.
     // This avoids frequent branch mispredictions on worst case input.
     if (arr_size < trie->root->base_val + 256)
