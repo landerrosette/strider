@@ -243,8 +243,14 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
         return ERR_PTR(ret);
     }
 
-    size_t ac_data_size = array3_size(3, trie->max_state_id + 1, sizeof(u32));
-    ac_data_size = size_add(ac_data_size, array_size(trie->max_state_id + 1, sizeof(struct list_head)));
+    size_t arr_size = trie->max_state_id + 1;
+    // Make sure arr_size is large enough so that the bounds check in the match function is predictable for the root state.
+    // For any byte c (0-255), we want base[1] + c < arr_size.
+    // This avoids frequent branch mispredictions on worst case input.
+    if (arr_size < trie->root->base_val + 256)
+        arr_size = trie->root->base_val + 256;
+    size_t ac_data_size = array3_size(3, arr_size, sizeof(u32));
+    ac_data_size = size_add(ac_data_size, array_size(arr_size, sizeof(struct list_head)));
     if (ac_data_size == SIZE_MAX) {
         strider_ac_trie_destroy(trie);
         return ERR_PTR(-ENOMEM);
@@ -254,7 +260,7 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
         strider_ac_trie_destroy(trie);
         return ERR_PTR(-ENOMEM);
     }
-    ac->arr_size = trie->max_state_id + 1;
+    ac->arr_size = arr_size;
     ac->base = (u32 *) ac->data;
     ac->check = ac->base + ac->arr_size;
     ac->failures = ac->check + ac->arr_size;
