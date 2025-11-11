@@ -172,7 +172,6 @@ static int strider_nl_connect(struct strider_nl_connection *conn) {
 fail_sk_free:
     nl_socket_free(conn->sock);
 fail:
-    fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
     return ret;
 }
 
