@@ -1,4 +1,4 @@
-AC_INIT([strider], [0.4.1])
+AC_INIT([strider], [0.4.2])
 AM_INIT_AUTOMAKE([-Wall foreign])
 AC_CONFIG_HEADERS([config.h])
 AC_PROG_CC
