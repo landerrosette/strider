@@ -11,7 +11,7 @@ void strider_core_exit(void);
 struct net;
 
 int strider_set_create(struct net *net, const char *set_name);
-int strider_set_unlink(struct net *net, const char *set_name);
+int strider_set_destroy(struct net *net, const char *set_name);
 int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len);
 int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len);
 

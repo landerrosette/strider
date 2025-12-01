@@ -61,7 +61,7 @@ static struct strider_net *strider_pernet(struct net *net) {
     return net_generic(net, strider_net_id);
 }
 
-static void strider_set_destroy(struct strider_set *set) {
+static void __strider_set_destroy(struct strider_set *set) {
     mutex_lock(&set->lock);
     pr_debug("set '%s': destroying physically\n", set->name);
     struct strider_pattern *entry, *tmp;
@@ -85,7 +85,7 @@ static void strider_sets_destroy_all(struct strider_net *sn) {
     hash_for_each_safe(sn->strider_sets_ht, bkt, tmp, set, list) {
         hash_del(&set->list);
         if (refcount_dec_and_test(&set->refcount))
-            strider_set_destroy(set);
+            __strider_set_destroy(set);
         else
             pr_warn("set '%s' busy, possibly leaking\n", set->name);
     }
@@ -118,7 +118,7 @@ static struct strider_set *__strider_set_get(struct net *net, const char *set_na
 static void __strider_set_put(struct strider_set *set) {
     pr_debug("set '%s': refcount=--%u\n", set->name, refcount_read(&set->refcount));
     if (refcount_dec_and_test(&set->refcount))
-        strider_set_destroy(set);
+        __strider_set_destroy(set);
 }
 
 static const struct strider_ac_target *strider_pattern_get_target(void *ctx) {
@@ -205,7 +205,7 @@ fail:
     return ret;
 }
 
-int strider_set_unlink(struct net *net, const char *set_name) {
+int strider_set_destroy(struct net *net, const char *set_name) {
     struct strider_net *sn = strider_pernet(net);
     down_write(&sn->strider_sets_ht_lock);
     struct strider_set *set = strider_set_lookup_locked(sn, set_name);
