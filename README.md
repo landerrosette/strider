@@ -30,18 +30,13 @@ sudo apt install build-essential pkg-config \
     ```shell
     autoreconf -i
     ```
-2. Create a `build` directory:
+2. Configure, build, and install:
     ```shell
-    mkdir build
-    cd build
-    ```
-3. Configure, build, and install:
-    ```shell
-    ../configure
+    ./configure
     make
     sudo make install
     ```
-4. Update the kernel's module dependency list:
+3. Update the kernel's module dependency list:
     ```shell
     sudo depmod -a
     ```
