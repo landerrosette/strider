@@ -1,0 +1,27 @@
+name: KUnit
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  kunit:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt build-dep linux
+    - name: Prepare kernel source code
+      run: |
+        apt source linux
+        cp -r strider linux-*/lib/
+        echo "source \"lib/strider/Kconfig\"" >> linux-*/lib/Kconfig
+        echo "obj-y += strider/" >> linux-*/lib/Makefile
+    - name: Run AC test
+      run: linux-*/tools/testing/kunit/kunit.py run strider_ac
