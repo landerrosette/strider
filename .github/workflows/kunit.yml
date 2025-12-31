@@ -15,6 +15,7 @@ jobs:
     - uses: actions/checkout@v4
     - name: Install dependencies
       run: |
+        sudo sed -i 'p; s/^deb /deb-src /' /etc/apt/sources.list
         sudo apt update
         sudo apt build-dep linux
     - name: Prepare kernel source code
