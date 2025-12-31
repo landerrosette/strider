@@ -129,14 +129,15 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern) {
                 fprintf(stderr, "%s: invalid hex block\n", program_name);
                 return -1;
             }
-            char xits[3] = {s[i], s[i + 1], '\0'};
-            char *endptr;
-            unsigned long val = strtoul(xits, &endptr, 16);
-            if (endptr != xits + 2) {
-                fprintf(stderr, "%s: invalid hex digit '%c'\n", program_name, *endptr);
+            if (!isxdigit((unsigned char)s[i])) {
+                fprintf(stderr, "%s: invalid hex digit '%c'\n", program_name, s[i]);
                 return -1;
             }
-            pattern->data[pos] = val;
+            if (!isxdigit((unsigned char)s[i + 1])) {
+                fprintf(stderr, "%s: invalid hex digit '%c'\n", program_name, s[i + 1]);
+                return -1;
+            }
+            sscanf(&s[i], "%2hhx", &pattern->data[pos]);
             if (s[i + 2] == ' ') // space included in the hex block
                 i += 3;
             else
