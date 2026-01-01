@@ -71,7 +71,7 @@ static void __strider_set_destroy(struct strider_set *set) {
     }
     struct strider_ac *ac = rcu_dereference_protected(set->ac, lockdep_is_held(&set->lock));
     if (ac)
-        strider_ac_schedule_destroy(ac);
+        strider_ac_destroy_rcu(ac);
     mutex_unlock(&set->lock);
     kfree_rcu(set, rcu);
     module_put(THIS_MODULE);
@@ -139,7 +139,7 @@ static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&s
         return PTR_ERR(new_ac);
     struct strider_ac *old_ac = rcu_replace_pointer(set->ac, new_ac, lockdep_is_held(&set->lock));
     if (old_ac)
-        strider_ac_schedule_destroy(old_ac);
+        strider_ac_destroy_rcu(old_ac);
     return 0;
 }
 

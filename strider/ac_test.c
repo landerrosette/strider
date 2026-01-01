@@ -42,7 +42,7 @@ static int strider_ac_test_resource_init(struct kunit_resource *res, void *ctx) 
 }
 
 static void strider_ac_test_resource_free(struct kunit_resource *res) {
-    strider_ac_schedule_destroy(res->data);
+    strider_ac_destroy_rcu(res->data);
 }
 
 static const struct strider_ac_target *strider_ac_test_get_target(void *ctx) {
