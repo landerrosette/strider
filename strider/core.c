@@ -219,7 +219,7 @@ int strider_set_destroy(struct net *net, const char *set_name) {
     }
     hash_del(&set->list);
     up_write(&sn->strider_sets_ht_lock);
-    pr_debug("set '%s': unlinked\n", set->name);
+    pr_debug("set '%s': destroyed\n", set->name);
     __strider_set_put(set);
     return 0;
 }
