@@ -39,7 +39,7 @@ static int strider_nl_destroy_set_doit(struct sk_buff *skb, struct genl_info *in
     const char *name = nla_data(info->attrs[STRIDER_ATTR_SET_NAME]);
     if (*name == '\0')
         return -EINVAL;
-    return strider_set_destroy(genl_info_net(info), name);
+    return strider_set_remove(genl_info_net(info), name);
 }
 
 static int strider_nl_add_pattern_doit(struct sk_buff *skb, struct genl_info *info) {
