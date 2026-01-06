@@ -1,4 +1,4 @@
-AC_INIT([strider], [0.4.4])
+AC_INIT([strider], [0.4.5])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([-Wall foreign])
