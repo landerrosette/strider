@@ -54,7 +54,7 @@ static const struct striderctl_command all_commands[] = {
     },
 };
 
-static const int num_commands = sizeof(all_commands) / sizeof(all_commands[0]);
+static const size_t num_commands = sizeof(all_commands) / sizeof(all_commands[0]);
 
 static void print_opt_err(char *argv[]) {
     if (optopt)
@@ -66,11 +66,11 @@ static void print_opt_err(char *argv[]) {
 
 struct strider_pattern {
     uint8_t data[STRIDER_MAX_PATTERN_SIZE];
-    int len;
+    size_t len;
 };
 
 static int validate_set_name(const char *set_name) {
-    int len = strlen(set_name);
+    size_t len = strlen(set_name);
     if (len > STRIDER_MAX_SET_NAME_SIZE - 1) {
         fprintf(stderr, "%s: SET_NAME too long\n", program_name);
         return -1;
@@ -83,14 +83,14 @@ static int validate_set_name(const char *set_name) {
 }
 
 static int parse_hex_string(const char *s, struct strider_pattern *pattern) {
-    int pos = 0;
+    size_t pos = 0;
     bool hex_flag = false, literal_flag = false;
-    int len = strlen(s);
+    size_t len = strlen(s);
     if (len == 0) {
         fprintf(stderr, "%s: PATTERN cannot be empty\n", program_name);
         return -1;
     }
-    for (int i = 0; i < len; ++pos) {
+    for (size_t i = 0; i < len; ++pos) {
         if (pos >= STRIDER_MAX_PATTERN_SIZE) {
             fprintf(stderr, "%s: PATTERN too long\n", program_name);
             return -1;
@@ -299,7 +299,7 @@ static int do_destroy(int argc, char *argv[]) {
 
 static int add_attr_pattern(struct nl_msg *msg, const void *data) {
     const struct strider_pattern *pattern = data;
-    return nla_put(msg, STRIDER_ATTR_PATTERN, pattern->len, pattern->data);
+    return nla_put(msg, STRIDER_ATTR_PATTERN, (int) pattern->len, pattern->data);
 }
 
 static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd) {
@@ -342,7 +342,7 @@ static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd) {
         if (ret < 0)
             return ret;
     } else {
-        int len = strlen(pattern_str);
+        size_t len = strlen(pattern_str);
         if (len > STRIDER_MAX_PATTERN_SIZE) {
             fprintf(stderr, "%s: PATTERN too long\n", program_name);
             return -1;
@@ -443,9 +443,9 @@ print_help:
 
     printf("\n");
     printf("Commands:\n");
-    int max_name_len = 0;
+    size_t max_name_len = 0;
     for (int i = 0; i < num_commands; ++i) {
-        int len = strlen(all_commands[i].name);
+        size_t len = strlen(all_commands[i].name);
         if (len > max_name_len)
             max_name_len = len;
     }
