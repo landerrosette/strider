@@ -1,6 +1,11 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+
+/*
+ * Copyright (C) 2025-2026 landerrosette
+ */
+
 #ifndef STRIDER_AC_H
 #define STRIDER_AC_H
-
 
 #include <linux/types.h>
 
@@ -22,6 +27,5 @@ void strider_ac_destroy_rcu(struct strider_ac *ac);
 void strider_ac_match_init(const struct strider_ac *ac, struct strider_ac_match_state *state);
 int strider_ac_match(struct strider_ac_match_state *state, const u8 *data, size_t len,
                      int (*cb)(const struct strider_ac_target *target, size_t pos, void *ctx), void *cb_ctx);
-
 
 #endif //STRIDER_AC_H

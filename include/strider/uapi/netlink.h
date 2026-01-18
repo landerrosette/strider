@@ -1,6 +1,11 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+
+/*
+ * Copyright (C) 2025-2026 landerrosette
+ */
+
 #ifndef STRIDER_UAPI_NETLINK_H
 #define STRIDER_UAPI_NETLINK_H
-
 
 #define STRIDER_GENL_FAMILY_NAME "strider"
 #define STRIDER_GENL_VERSION 2
@@ -26,6 +31,5 @@ enum {
 };
 
 #define STRIDER_ATTR_MAX (__STRIDER_ATTR_MAX - 1)
-
 
 #endif //STRIDER_UAPI_NETLINK_H

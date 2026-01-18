@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+# Copyright (C) 2025-2026 landerrosette
+
 xtlib_LTLIBRARIES = libxt_strider.la
 
 AM_CFLAGS = -Wall

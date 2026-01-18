@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+/*
+ * Copyright (C) 2025-2026 landerrosette
+ */
+
 #include "xt_strider.h"
 
 #include <linux/compiler.h>

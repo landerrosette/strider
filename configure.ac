@@ -1,4 +1,8 @@
-AC_INIT([strider], [0.4.6])
+# SPDX-License-Identifier: GPL-2.0-only
+
+# Copyright (C) 2025-2026 landerrosette
+
+AC_INIT([strider], [0.5.0])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([-Wall foreign])

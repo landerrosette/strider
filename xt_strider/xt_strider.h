@@ -1,6 +1,11 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+
+/*
+ * Copyright (C) 2025-2026 landerrosette
+ */
+
 #ifndef STRIDER_XT_STRIDER_H
 #define STRIDER_XT_STRIDER_H
-
 
 #include <linux/types.h>
 #include <strider/uapi/limits.h>
@@ -18,6 +23,5 @@ struct xt_strider_info {
     // used internally by the kernel
     struct strider_set __attribute__((aligned(8))) *set;
 };
-
 
 #endif //STRIDER_XT_STRIDER_H

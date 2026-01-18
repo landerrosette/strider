@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+/*
+ * Copyright (C) 2025-2026 landerrosette
+ */
+
 #include <stdint.h>
 #include <stdio.h>
 #include <xtables.h>
