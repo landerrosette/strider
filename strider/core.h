@@ -20,4 +20,4 @@ int strider_set_remove(struct net *net, const char *set_name);
 int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len);
 int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len);
 
-#endif //STRIDER_CORE_H
+#endif // STRIDER_CORE_H

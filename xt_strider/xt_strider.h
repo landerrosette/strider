@@ -24,4 +24,4 @@ struct xt_strider_info {
     struct strider_set __attribute__((aligned(8))) *set;
 };
 
-#endif //STRIDER_XT_STRIDER_H
+#endif // STRIDER_XT_STRIDER_H

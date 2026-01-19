@@ -28,4 +28,4 @@ void strider_ac_match_init(const struct strider_ac *ac, struct strider_ac_match_
 int strider_ac_match(struct strider_ac_match_state *state, const u8 *data, size_t len,
                      int (*cb)(const struct strider_ac_target *target, size_t pos, void *ctx), void *cb_ctx);
 
-#endif //STRIDER_AC_H
+#endif // STRIDER_AC_H

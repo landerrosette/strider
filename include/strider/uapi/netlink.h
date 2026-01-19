@@ -32,4 +32,4 @@ enum {
 
 #define STRIDER_ATTR_MAX (__STRIDER_ATTR_MAX - 1)
 
-#endif //STRIDER_UAPI_NETLINK_H
+#endif // STRIDER_UAPI_NETLINK_H
