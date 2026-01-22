@@ -254,7 +254,7 @@ static int do_create_destroy(int argc, char *argv[], enum strider_cmd nl_cmd) {
         {"help", no_argument, NULL, 'h'},
         {}
     };
-    while (1) {
+    while (true) {
         int c = getopt_long(argc, argv, ":h", options, NULL);
         if (c == -1)
             break;

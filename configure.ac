@@ -2,7 +2,7 @@
 
 # Copyright (C) 2025-2026 landerrosette <57791410+landerrosette@users.noreply.github.com>
 
-AC_INIT([strider], [0.5.1])
+AC_INIT([strider], [0.5.2])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([-Wall foreign])
