@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
-# Copyright (C) 2025-2026 landerrosette <57791410+landerrosette@users.noreply.github.com>
+# Copyright (C) 2025-2026  landerrosette <57791410+landerrosette@users.noreply.github.com>
 
 config STRIDER_AC_KUNIT_TEST
-    tristate "KUnit tests for Strider Aho-Corasick" if !KUNIT_ALL_TESTS
-    depends on KUNIT
-    default KUNIT_ALL_TESTS
+	tristate "KUnit tests for Strider Aho-Corasick" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	default KUNIT_ALL_TESTS

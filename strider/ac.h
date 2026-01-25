@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 
 /*
- * Copyright (C) 2025-2026 landerrosette <57791410+landerrosette@users.noreply.github.com>
+ * Copyright (C) 2025-2026  landerrosette <57791410+landerrosette@users.noreply.github.com>
  */
 
 #ifndef STRIDER_AC_H
@@ -12,20 +12,22 @@
 struct strider_ac;
 
 struct strider_ac_target {
-    const u8 *pattern;
-    size_t pattern_len;
+	const u8 *pattern;
+	size_t pattern_len;
 };
 
 struct strider_ac_match_state {
-    const struct strider_ac *ac;
-    u32 ac_state;
+	const struct strider_ac *ac;
+	u32 ac_state;
 };
 
-struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target)(void *ctx), void *iter_ctx);
+struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target)(void *ctx),
+				    void *iter_ctx);
 void strider_ac_destroy_rcu(struct strider_ac *ac);
 
 void strider_ac_match_init(const struct strider_ac *ac, struct strider_ac_match_state *state);
 int strider_ac_match(struct strider_ac_match_state *state, const u8 *data, size_t len,
-                     int (*cb)(const struct strider_ac_target *target, size_t pos, void *ctx), void *cb_ctx);
+		     int (*cb)(const struct strider_ac_target *target, size_t pos, void *ctx),
+		     void *cb_ctx);
 
 #endif // STRIDER_AC_H

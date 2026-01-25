@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 
 /*
- * Copyright (C) 2025-2026 landerrosette <57791410+landerrosette@users.noreply.github.com>
+ * Copyright (C) 2025-2026  landerrosette <57791410+landerrosette@users.noreply.github.com>
  */
 
 #ifndef STRIDER_XT_STRIDER_H
@@ -11,17 +11,17 @@
 #include <strider/uapi/limits.h>
 
 enum {
-    XT_STRIDER_FLAG_INVERT = 0x01,
+	XT_STRIDER_FLAG_INVERT = 0x01,
 };
 
 struct xt_strider_info {
-    __u16 from_offset;
-    __u16 to_offset;
-    char set_name[STRIDER_MAX_SET_NAME_SIZE];
-    __u8 flags;
+	__u16 from_offset;
+	__u16 to_offset;
+	char set_name[STRIDER_MAX_SET_NAME_SIZE];
+	__u8 flags;
 
-    // used internally by the kernel
-    struct strider_set __attribute__((aligned(8))) *set;
+	// used internally by the kernel
+	struct strider_set __attribute__((aligned(8))) * set;
 };
 
 #endif // STRIDER_XT_STRIDER_H
