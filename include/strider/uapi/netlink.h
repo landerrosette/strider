@@ -19,7 +19,6 @@ enum strider_cmd {
 	STRIDER_CMD_DEL_PATTERN,
 	__STRIDER_CMD_MAX,
 };
-
 #define STRIDER_CMD_MAX (__STRIDER_CMD_MAX - 1)
 
 // netlink attributes used in the messages
@@ -29,7 +28,6 @@ enum {
 	STRIDER_ATTR_PATTERN, // type: NLA_BINARY
 	__STRIDER_ATTR_MAX,
 };
-
 #define STRIDER_ATTR_MAX (__STRIDER_ATTR_MAX - 1)
 
 #endif // STRIDER_UAPI_NETLINK_H

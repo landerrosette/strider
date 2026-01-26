@@ -279,42 +279,42 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
 	trie->num_nodes = 1;
 	int ret = strider_ac_trie_add_targets(trie, get_target, iter_ctx);
 	if (ret < 0)
-		goto fail;
+		goto err;
 	strider_ac_trie_link_failures(trie);
 	ret = strider_ac_trie_assign_state_ids(trie);
 	if (ret < 0)
-		goto fail;
+		goto err;
 
 	u32 arr_size;
 	// make arrays large enough to eliminate match-time bounds check
 	if (check_add_overflow(trie->max_base_val, 256, &arr_size) != 0) {
 		ret = -ENOMEM;
-		goto fail;
+		goto err;
 	}
 	struct strider_ac *ac = kmalloc(sizeof(*ac), GFP_KERNEL);
 	if (!ac) {
 		ret = -ENOMEM;
-		goto fail;
+		goto err;
 	}
 	ac->base = kvcalloc(arr_size, sizeof(*ac->base), GFP_KERNEL);
 	if (!ac->base) {
 		ret = -ENOMEM;
-		goto fail_kfree_ac;
+		goto err_free_ac;
 	}
 	ac->check = kvcalloc(arr_size, sizeof(*ac->check), GFP_KERNEL);
 	if (!ac->check) {
 		ret = -ENOMEM;
-		goto fail_kvfree_base;
+		goto err_free_base;
 	}
 	ac->failures = kvcalloc(arr_size, sizeof(*ac->failures), GFP_KERNEL);
 	if (!ac->failures) {
 		ret = -ENOMEM;
-		goto fail_kvfree_check;
+		goto err_free_check;
 	}
 	ac->outputs = kvcalloc(arr_size, sizeof(*ac->outputs), GFP_KERNEL);
 	if (!ac->outputs) {
 		ret = -ENOMEM;
-		goto fail_kvfree_failures;
+		goto err_free_failures;
 	}
 	for (u32 i = 0; i < arr_size; ++i)
 		INIT_LIST_HEAD(&ac->outputs[i]);
@@ -342,15 +342,15 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
 	strider_ac_trie_destroy(trie);
 	return ac;
 
-fail_kvfree_failures:
+err_free_failures:
 	kvfree(ac->failures);
-fail_kvfree_check:
+err_free_check:
 	kvfree(ac->check);
-fail_kvfree_base:
+err_free_base:
 	kvfree(ac->base);
-fail_kfree_ac:
+err_free_ac:
 	kfree(ac);
-fail:
+err:
 	strider_ac_trie_destroy(trie);
 	return ERR_PTR(ret);
 }

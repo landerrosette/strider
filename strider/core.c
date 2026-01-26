@@ -173,7 +173,7 @@ int strider_set_create(struct net *net, const char *set_name)
 	struct strider_set *new_set = kzalloc(sizeof(*new_set), GFP_KERNEL);
 	if (!new_set) {
 		ret = -ENOMEM;
-		goto fail;
+		goto err;
 	}
 	strscpy(new_set->name, set_name, STRIDER_MAX_SET_NAME_SIZE);
 	INIT_LIST_HEAD(&new_set->patterns);
@@ -184,7 +184,7 @@ int strider_set_create(struct net *net, const char *set_name)
 	down_write(&sn->strider_sets_ht_lock);
 	if (strider_set_lookup_locked(sn, new_set->name)) {
 		ret = -EEXIST;
-		goto fail_unlock;
+		goto err_unlock;
 	}
 	hash_add(sn->strider_sets_ht, &new_set->list,
 		 jhash(new_set->name, strlen(new_set->name), 0));
@@ -193,10 +193,10 @@ int strider_set_create(struct net *net, const char *set_name)
 	pr_debug("set '%s': created\n", new_set->name);
 	return ret;
 
-fail_unlock:
+err_unlock:
 	up_write(&sn->strider_sets_ht_lock);
 	kfree(new_set);
-fail:
+err:
 	module_put(THIS_MODULE);
 	return ret;
 }
@@ -241,13 +241,13 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
 		if (entry->ac_target.pattern_len == len &&
 		    memcmp(entry->ac_target.pattern, pattern, len) == 0) {
 			ret = -EEXIST;
-			goto fail;
+			goto err;
 		}
 	}
 	list_add(&new_entry->list, &set->patterns);
 	ret = strider_set_refresh_ac_locked(set);
 	if (ret < 0)
-		goto fail_list_del;
+		goto err_list_del;
 	pr_debug("set '%s': added pattern len=%zu data=%*ph\n", set->name,
 		 new_entry->ac_target.pattern_len, (int)new_entry->ac_target.pattern_len,
 		 new_entry->data);
@@ -256,9 +256,9 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
 
 	return ret;
 
-fail_list_del:
+err_list_del:
 	list_del(&new_entry->list);
-fail:
+err:
 	mutex_unlock(&set->lock);
 	strider_set_put(set);
 	kfree(new_entry);
@@ -280,7 +280,7 @@ int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pat
 			list_del(&entry->list);
 			ret = strider_set_refresh_ac_locked(set);
 			if (ret < 0)
-				goto fail;
+				goto err;
 			kfree(entry);
 			break;
 		}
@@ -290,7 +290,7 @@ int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pat
 
 	return ret;
 
-fail:
+err:
 	list_add(&entry->list, &set->patterns);
 	mutex_unlock(&set->lock);
 	strider_set_put(set);
@@ -309,7 +309,6 @@ struct strider_set *strider_set_get(struct net *net, const char *set_name)
 	up_read(&sn->strider_sets_ht_lock);
 	return set ? set : ERR_PTR(-ENOENT);
 }
-
 EXPORT_SYMBOL_GPL(strider_set_get);
 
 void strider_set_put(struct strider_set *set)
@@ -320,7 +319,6 @@ void strider_set_put(struct strider_set *set)
 			strider_set_destroy(set);
 	}
 }
-
 EXPORT_SYMBOL_GPL(strider_set_put);
 
 static int strider_match_skb_cb(const struct strider_ac_target *target, size_t pos, void *ctx)
@@ -356,5 +354,4 @@ out:
 	rcu_read_unlock();
 	return ret;
 }
-
 EXPORT_SYMBOL_GPL(strider_match_skb);

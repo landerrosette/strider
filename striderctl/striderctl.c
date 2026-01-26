@@ -151,9 +151,10 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern)
 				i += 3;
 			else
 				i += 2;
-		} else
-			pattern->data[pos] =
-				s[i++]; // the char is not part of hex data, so just copy
+		} else {
+			// the char is not part of hex data, so just copy
+			pattern->data[pos] = s[i++];
+		}
 	}
 	pattern->len = pos;
 	return 0;
@@ -170,19 +171,19 @@ static int strider_nl_connect(struct strider_nl_connection *conn)
 	conn->sock = nl_socket_alloc();
 	if (!conn->sock) {
 		ret = -NLE_NOMEM;
-		goto fail;
+		goto err;
 	}
 	ret = genl_connect(conn->sock);
 	if (ret < 0)
-		goto fail_sk_free;
+		goto err_sk_free;
 	ret = genl_ctrl_resolve(conn->sock, STRIDER_GENL_FAMILY_NAME);
 	if (ret < 0)
-		goto fail_sk_free;
+		goto err_sk_free;
 	conn->family_id = ret;
 	return 0;
-fail_sk_free:
+err_sk_free:
 	nl_socket_free(conn->sock);
-fail:
+err:
 	return ret;
 }
 
@@ -328,7 +329,7 @@ static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd)
 	struct option options[] = { { "help", no_argument, NULL, 'h' },
 				    { "hex", no_argument, &use_hex, true },
 				    {} };
-	while (1) {
+	while (true) {
 		int c = getopt_long(argc, argv, ":h", options, NULL);
 		if (c == -1)
 			break;
@@ -413,7 +414,7 @@ int main(int argc, char *argv[])
 	struct option options[] = { { "help", no_argument, NULL, 'h' },
 				    { "version", no_argument, NULL, 'v' },
 				    {} };
-	while (1) {
+	while (true) {
 		int c = getopt_long(argc, argv, "+:hv", options, NULL);
 		if (c == -1)
 			break;
