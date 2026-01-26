@@ -297,15 +297,12 @@ static int do_create_destroy(int argc, char *argv[], enum strider_cmd nl_cmd)
 
 print_help:
 	printf("%s %s [OPTIONS...] SET_NAME\n", program_name, argv[0]);
-
-	printf("\n");
-	printf("Options:\n");
-	printf("  -h, --help    Print this help information\n");
-
-	printf("\n");
-	printf("Arguments:\n");
-	printf("  SET_NAME    The unique name of the pattern set\n");
-
+	printf("\n"
+	       "Options:\n"
+	       "  -h, --help    Print this help information\n");
+	printf("\n"
+	       "Arguments:\n"
+	       "  SET_NAME    The unique name of the pattern set\n");
 	return 0;
 }
 
@@ -386,18 +383,15 @@ static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd)
 
 print_help:
 	printf("%s %s [OPTIONS...] SET_NAME PATTERN\n", program_name, argv[0]);
-
-	printf("\n");
-	printf("Options:\n");
-	printf("  -h, --help    Print this help information\n");
-	printf("      --hex     Enable hexadecimal parsing mode for PATTERN\n"
+	printf("\n"
+	       "Options:\n"
+	       "  -h, --help    Print this help information\n"
+	       "      --hex     Enable hexadecimal parsing mode for PATTERN\n"
 	       "                (e.g., 'foo|42 41 52|' -> 'fooBAR')\n");
-
-	printf("\n");
-	printf("Arguments:\n");
-	printf("  SET_NAME    The name of the pattern set\n");
-	printf("  PATTERN     The pattern string\n");
-
+	printf("\n"
+	       "Arguments:\n"
+	       "  SET_NAME    The name of the pattern set\n"
+	       "  PATTERN     The pattern string\n");
 	return 0;
 }
 
@@ -466,9 +460,8 @@ int main(int argc, char *argv[])
 
 print_help:
 	printf("%s [OPTIONS...] COMMAND ...\n", program_name);
-
-	printf("\n");
-	printf("Commands:\n");
+	printf("\n"
+	       "Commands:\n");
 	size_t max_name_len = 0;
 	for (int i = 0; i < num_commands; ++i) {
 		size_t len = strlen(all_commands[i].name);
@@ -478,15 +471,13 @@ print_help:
 	for (int i = 0; i < num_commands; ++i)
 		printf("  %-*s    %s\n", (int)max_name_len, all_commands[i].name,
 		       all_commands[i].description);
-
-	printf("\n");
-	printf("Options:\n");
-	printf("  -h, --help       Print this help information\n");
-	printf("  -v, --version    Print version information\n");
-
-	printf("\n");
-	printf("Run '%s COMMAND --help' for more information on a command.\n", program_name);
-
+	printf("\n"
+	       "Options:\n"
+	       "  -h, --help       Print this help information\n"
+	       "  -v, --version    Print version information\n"
+	       "\n"
+	       "Run '%s COMMAND --help' for more information on a command.\n",
+	       program_name);
 	return EXIT_SUCCESS;
 print_version:
 	printf("%s v%s\n", program_name, version);
