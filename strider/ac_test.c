@@ -78,18 +78,14 @@ static void strider_ac_test_case_run(struct kunit *test, const char *patterns[],
 {
 	struct strider_ac_test_target targets[STRIDER_AC_TEST_MAX_TARGETS + 1];
 	int i;
-	for (i = 0; patterns[i]; ++i) {
+	for (i = 0; patterns[i]; ++i)
 		targets[i] = (struct strider_ac_test_target){
-			.ac_target =
-				(struct strider_ac_target){ .pattern = (const u8 *)patterns[i],
-							    .pattern_len = strlen(patterns[i]) },
-			.id = i,
+			(struct strider_ac_target){ (const u8 *)patterns[i], strlen(patterns[i]) },
+			i
 		};
-	}
 	targets[i].id = -1;
 	struct strider_ac_test_target_iter iter = {
-		strider_ac_test_get_target,
-		&(struct strider_ac_test_target_iter_ctx){ targets, 0 },
+		strider_ac_test_get_target, &(struct strider_ac_test_target_iter_ctx){ targets, 0 }
 	};
 	struct strider_ac *ac = kunit_alloc_resource(test, strider_ac_test_resource_init,
 						     strider_ac_test_resource_free, GFP_KERNEL,
@@ -146,14 +142,16 @@ static void test_no_pattern(struct kunit *test)
 	strider_ac_test_case_run(test, (const char *[]){ NULL }, "whatever", 0, 0);
 }
 
-static struct kunit_case strider_ac_test_cases[] = { KUNIT_CASE(test_classic_prefix_suffix_overlap),
-						     KUNIT_CASE(test_multi_overlap_sequences),
-						     KUNIT_CASE(test_repeated_char_overlaps),
-						     KUNIT_CASE(test_shared_prefix_varied_lengths),
-						     KUNIT_CASE(test_nested_prefix_suffix_outputs),
-						     KUNIT_CASE(test_no_match),
-						     KUNIT_CASE(test_no_pattern),
-						     {} };
+static struct kunit_case strider_ac_test_cases[] = {
+	KUNIT_CASE(test_classic_prefix_suffix_overlap),
+	KUNIT_CASE(test_multi_overlap_sequences),
+	KUNIT_CASE(test_repeated_char_overlaps),
+	KUNIT_CASE(test_shared_prefix_varied_lengths),
+	KUNIT_CASE(test_nested_prefix_suffix_outputs),
+	KUNIT_CASE(test_no_match),
+	KUNIT_CASE(test_no_pattern),
+	{},
+};
 
 static void strider_ac_test_suite_exit(struct kunit_suite *suite)
 {

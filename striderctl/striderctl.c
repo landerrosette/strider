@@ -263,7 +263,10 @@ static int add_attr_set_name(struct nl_msg *msg, const void *data)
 
 static int do_create_destroy(int argc, char *argv[], enum strider_cmd nl_cmd)
 {
-	struct option options[] = { { "help", no_argument, NULL, 'h' }, {} };
+	struct option options[] = {
+		{ "help", no_argument, NULL, 'h' },
+		{},
+	};
 	while (true) {
 		int c = getopt_long(argc, argv, ":h", options, NULL);
 		if (c == -1)
@@ -326,9 +329,11 @@ static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd)
 {
 	int use_hex = false;
 
-	struct option options[] = { { "help", no_argument, NULL, 'h' },
-				    { "hex", no_argument, &use_hex, true },
-				    {} };
+	struct option options[] = {
+		{ "help", no_argument, NULL, 'h' },
+		{ "hex", no_argument, &use_hex, true },
+		{},
+	};
 	while (true) {
 		int c = getopt_long(argc, argv, ":h", options, NULL);
 		if (c == -1)
@@ -411,9 +416,11 @@ int main(int argc, char *argv[])
 	char *argv0_copy = strdup(argv[0]);
 	program_name = basename(argv0_copy);
 
-	struct option options[] = { { "help", no_argument, NULL, 'h' },
-				    { "version", no_argument, NULL, 'v' },
-				    {} };
+	struct option options[] = {
+		{ "help", no_argument, NULL, 'h' },
+		{ "version", no_argument, NULL, 'v' },
+		{},
+	};
 	while (true) {
 		int c = getopt_long(argc, argv, "+:hv", options, NULL);
 		if (c == -1)
