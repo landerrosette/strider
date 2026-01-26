@@ -215,7 +215,7 @@ out:
 }
 
 static int strider_nl_do_cmd(enum strider_cmd nl_cmd,
-			     int (*cb_add_attrs[])(struct nl_msg *msg, const void *data),
+			     int (*add_attrs[])(struct nl_msg *msg, const void *data),
 			     const void *cb_data[])
 {
 	struct strider_nl_connection conn;
@@ -236,8 +236,8 @@ static int strider_nl_do_cmd(enum strider_cmd nl_cmd,
 		fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
 		goto out_msg_free;
 	}
-	for (int i = 0; cb_add_attrs[i]; ++i) {
-		ret = cb_add_attrs[i](msg, cb_data[i]);
+	for (int i = 0; add_attrs[i]; ++i) {
+		ret = add_attrs[i](msg, cb_data[i]);
 		if (ret < 0) {
 			fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
 			goto out_msg_free;
@@ -291,9 +291,9 @@ static int do_create_destroy(int argc, char *argv[], enum strider_cmd nl_cmd)
 	int ret = validate_set_name(set_name);
 	if (ret < 0)
 		return ret;
-	int (*cbs[])(struct nl_msg *msg, const void *) = { add_attr_set_name, NULL };
-	const void *attrs[] = { set_name, NULL };
-	return strider_nl_do_cmd(nl_cmd, cbs, attrs);
+	return strider_nl_do_cmd(
+		nl_cmd, (int (*[])(struct nl_msg *, const void *)){ add_attr_set_name, NULL },
+		(const void *[]){ set_name, NULL });
 
 print_help:
 	printf("%s %s [OPTIONS...] SET_NAME\n", program_name, argv[0]);
@@ -376,10 +376,10 @@ static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd)
 		memcpy(pattern.data, pattern_str, len);
 		pattern.len = len;
 	}
-	int (*cbs[])(struct nl_msg *msg, const void *) = { add_attr_set_name, add_attr_pattern,
-							   NULL };
-	const void *attrs[] = { set_name, &pattern, NULL };
-	return strider_nl_do_cmd(nl_cmd, cbs, attrs);
+	return strider_nl_do_cmd(nl_cmd,
+				 (int (*[])(struct nl_msg *, const void *)){
+					 add_attr_set_name, add_attr_pattern, NULL },
+				 (const void *[]){ set_name, &pattern, NULL });
 
 print_help:
 	printf("%s %s [OPTIONS...] SET_NAME PATTERN\n", program_name, argv[0]);
