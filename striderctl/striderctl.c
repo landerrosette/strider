@@ -479,6 +479,7 @@ print_help:
 	       "Run '%s COMMAND --help' for more information on a command.\n",
 	       program_name);
 	return EXIT_SUCCESS;
+
 print_version:
 	printf("%s v%s\n", program_name, version);
 	return EXIT_SUCCESS;
