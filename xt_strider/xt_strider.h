@@ -21,7 +21,7 @@ struct xt_strider_info {
 	__u8 flags;
 
 	// used internally by the kernel
-	struct strider_set __attribute__((aligned(8))) * set;
+	struct strider_set *set __attribute__((aligned(8)));
 };
 
 #endif // STRIDER_XT_STRIDER_H
