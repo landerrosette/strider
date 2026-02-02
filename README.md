@@ -26,7 +26,7 @@ sudo apt install build-essential pkg-config \
 
 ### Build and Install
 
-1. Generate the `configure` script:
+1. Pre-configure:
     ```shell
     autoreconf -i
     ```
