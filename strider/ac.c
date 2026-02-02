@@ -15,6 +15,7 @@
 #include <linux/list_sort.h>
 #include <linux/overflow.h>
 #include <linux/rcupdate.h>
+#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/types.h>
 
@@ -205,6 +206,8 @@ static int strider_ac_trie_assign_state_ids(struct strider_ac_trie *trie)
 	list_add(&trie->root->list, &stack);
 
 	while (!list_empty(&stack)) {
+		cond_resched();
+
 		struct strider_ac_node *node =
 			list_first_entry(&stack, struct strider_ac_node, list);
 		list_del(&node->list);
