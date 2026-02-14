@@ -1,20 +1,20 @@
 # Strider
 
-Strider accelerates multi-pattern string matching in Linux Netfilter using the Aho-Corasick algorithm. It provides a
+Strider accelerates multi-pattern string matching in Linux Netfilter using the Aho–Corasick algorithm. It provides a
 scalable, dynamic alternative to [
 `xt_string`](https://man7.org/linux/man-pages/man8/iptables-extensions.8.html#:~:text=the%20nth%20mode.-,string,-This%20module%20matches),
 capable of handling thousands of runtime-updatable patterns with minimal overhead.
 
 ## Why Strider?
 
-The native `xt_string` scales poorly because it matches patterns one by one. Strider uses the Aho-Corasick algorithm to
+The native `xt_string` scales poorly because it matches patterns one by one. Strider uses the Aho–Corasick algorithm to
 match **all patterns at once** in a single pass.
 
-What's worse, `xt_string` forces a trade-off between **speed** (Boyer-Moore, which misses patterns split across
-fragments) and **correctness** (Knuth-Pratt-Morris, reliable but extremely slow).
+What's worse, `xt_string` forces a trade-off between **speed** (Boyer–Moore, which misses patterns split across
+fragments) and **correctness** (Knuth–Morris–Pratt, reliable but extremely slow).
 
 **Strider gives you both.** It provides the correctness of KMP (never missing fragmented patterns) with performance that
-eclipses even the fast Boyer-Moore algorithm.
+eclipses even the fast Boyer–Moore algorithm.
 
 <p align="center">
     <img src="performance_comparison.png" width="48%" />
@@ -27,7 +27,7 @@ eclipses even the fast Boyer-Moore algorithm.
    **558.7x** speedup over `xt_string` (which collapses to an unusable 1.96 Mbps in the "reliable" KMP mode).
 2. **No "Safety Tax"**: Strider matches KMP's reliability guarantees (handling fragmentation) while delivering superior
    performance for any non-trivial ruleset (>1 pattern).
-3. **Low Break-Even Point**: Even against the "fast but unreliable" Boyer-Moore algorithm, Strider takes the lead once
+3. **Low Break-Even Point**: Even against the "fast but unreliable" Boyer–Moore algorithm, Strider takes the lead once
    your ruleset exceeds just **~7** patterns.
 
 ## Installation
