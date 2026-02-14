@@ -16,7 +16,7 @@ all patterns at once.
 
 **Key Takeaways:**
 
-1. **Unmatched scalability**: Strider maintains ~1 Gbps throughput even with 3,000 patterns, delivering a **168x**
+1. **Unmatched scalability**: Strider maintains above 1 Gbps throughput even with 3,000 patterns, delivering a **168x**
 speedup over `xt_string` (which collapses to an unusable 6 Mbps).
 2. **Low break-even point**: You don't need massive rulesets to see benefits. Strider outperforms the native solution
 once your ruleset exceeds just **~7** patterns.
