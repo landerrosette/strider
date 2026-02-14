@@ -1,8 +1,9 @@
 # Strider
 
-Strider accelerates multi-pattern string matching in Linux Netfilter using
-the [Aho-Corasick algorithm](https://cr.yp.to/bib/1975/aho.pdf). It provides a scalable, dynamic alternative to the
-string match extension `xt_string`, capable of handling thousands of runtime-updatable patterns with minimal overhead.
+Strider accelerates multi-pattern string matching in Linux Netfilter using the Aho-Corasick algorithm. It provides a
+scalable, dynamic alternative to
+[`xt_string`](https://man7.org/linux/man-pages/man8/iptables-extensions.8.html#:~:text=the%20nth%20mode.-,string,-This%20module%20matches),
+capable of handling thousands of runtime-updatable patterns with minimal overhead.
 
 ## Why Strider?
 
@@ -17,9 +18,9 @@ all patterns at once.
 **Key Takeaways:**
 
 1. **Unmatched scalability**: Strider maintains above 1 Gbps throughput even with 3,000 patterns, delivering a **168x**
-speedup over `xt_string` (which collapses to an unusable 6 Mbps).
+   speedup over `xt_string` (which collapses to an unusable 6 Mbps).
 2. **Low break-even point**: You don't need massive rulesets to see benefits. Strider outperforms the native solution
-once your ruleset exceeds just **~7** patterns.
+   once your ruleset exceeds just **~7** patterns.
 
 ## Installation
 
