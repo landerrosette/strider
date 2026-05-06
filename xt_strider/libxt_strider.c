@@ -26,22 +26,28 @@ static void strider_help(void)
 }
 
 static const struct xt_option_entry strider_opts[] = {
-	{ .name = "from",
-	  .type = XTTYPE_UINT16,
-	  .id = O_FROM,
-	  .flags = XTOPT_PUT,
-	  XTOPT_POINTER(struct xt_strider_info, from_offset) },
-	{ .name = "to",
-	  .type = XTTYPE_UINT16,
-	  .id = O_TO,
-	  .flags = XTOPT_PUT,
-	  XTOPT_POINTER(struct xt_strider_info, to_offset) },
-	{ .name = "match-set",
-	  .type = XTTYPE_STRING,
-	  .id = O_MATCH_SET,
-	  .flags = XTOPT_INVERT | XTOPT_MAND | XTOPT_PUT,
-	  XTOPT_POINTER(struct xt_strider_info, set_name) },
-	XTOPT_TABLEEND
+	{
+		.name = "from",
+		.type = XTTYPE_UINT16,
+		.id = O_FROM,
+		.flags = XTOPT_PUT,
+		XTOPT_POINTER(struct xt_strider_info, from_offset),
+	},
+	{
+		.name = "to",
+		.type = XTTYPE_UINT16,
+		.id = O_TO,
+		.flags = XTOPT_PUT,
+		XTOPT_POINTER(struct xt_strider_info, to_offset),
+	},
+	{
+		.name = "match-set",
+		.type = XTTYPE_STRING,
+		.id = O_MATCH_SET,
+		.flags = XTOPT_INVERT | XTOPT_MAND | XTOPT_PUT,
+		XTOPT_POINTER(struct xt_strider_info, set_name),
+	},
+	XTOPT_TABLEEND,
 };
 
 static void strider_init(struct xt_entry_match *match)
