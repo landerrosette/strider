@@ -108,3 +108,5 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+/config.h
