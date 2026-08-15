@@ -230,7 +230,7 @@ static int strider_ac_trie_assign_state_ids(struct strider_ac_trie *trie)
 retry:
 		slot = find_next_zero_bit(
 			occupied, arr_size,
-			slot); // arr_size shall be >= 256 so base_val will not underflow
+			slot); // arr_size is guaranteed to be >= 256 so base_val will not underflow
 		u32 base_val = slot - first_byte;
 		if (base_val + last_byte >= arr_size) {
 			u32 new_arr_size;
