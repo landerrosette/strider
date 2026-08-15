@@ -135,7 +135,7 @@ static int strider_ac_trie_add_targets(struct strider_ac_trie *trie,
 				child = strider_ac_node_add_child(node, target->pattern[i]);
 				if (!child)
 					return -ENOMEM;
-				if (check_add_overflow(trie->num_nodes, 1, &trie->num_nodes) != 0)
+				if (check_add_overflow(trie->num_nodes, 1, &trie->num_nodes))
 					return -EOVERFLOW;
 			}
 			node = child;
@@ -199,7 +199,7 @@ static int strider_ac_transition_cmp(void *priv, const struct list_head *a,
 static int strider_ac_trie_assign_state_ids(struct strider_ac_trie *trie)
 {
 	u32 arr_size;
-	if (check_add_overflow(trie->num_nodes, 256, &arr_size) != 0)
+	if (check_add_overflow(trie->num_nodes, 256, &arr_size))
 		return -EOVERFLOW;
 	unsigned long *occupied = bitmap_zalloc(arr_size, GFP_KERNEL);
 	if (!occupied)
@@ -234,7 +234,7 @@ retry:
 		u32 base_val = slot - first_byte;
 		if (base_val + last_byte >= arr_size) {
 			u32 new_arr_size;
-			if (check_mul_overflow(arr_size, 2, &new_arr_size) != 0) {
+			if (check_mul_overflow(arr_size, 2, &new_arr_size)) {
 				bitmap_free(occupied);
 				return -EOVERFLOW;
 			}
@@ -295,7 +295,7 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
 
 	u32 arr_size;
 	// make arrays large enough to eliminate match-time bounds check
-	if (check_add_overflow(trie->max_base_val, 256, &arr_size) != 0) {
+	if (check_add_overflow(trie->max_base_val, 256, &arr_size)) {
 		ret = -EOVERFLOW;
 		goto err;
 	}
@@ -428,14 +428,14 @@ int strider_ac_match(struct strider_ac_match_state *state, const u8 *data, size_
 			const struct strider_ac_output *output;
 			list_for_each_entry(output, &ac->outputs[ac_state], list) {
 				ret = cb(output->target, i, cb_ctx);
-				if (ret != 0)
+				if (ret)
 					goto out;
 			}
 			for (u32 link = ac->output_links[ac_state]; link;
 			     link = ac->output_links[link]) {
 				list_for_each_entry(output, &ac->outputs[link], list) {
 					ret = cb(output->target, i, cb_ctx);
-					if (ret != 0)
+					if (ret)
 						goto out;
 				}
 			}
