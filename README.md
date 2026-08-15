@@ -24,11 +24,11 @@ eclipses even the fast Boyer–Moore algorithm.
 **Key Takeaways:**
 
 1. **Unmatched Scalability**: Strider maintains above 1 Gbps throughput even with 3,000 patterns, delivering a
-   **558.7x** speedup over `xt_string` (which collapses to an unusable 1.96 Mbps in the "reliable" KMP mode).
+   **551.3x** speedup over `xt_string` (which collapses to an unusable 1.89 Mbps in the "reliable" KMP mode).
 2. **No "Safety Tax"**: Strider matches KMP's reliability guarantees (handling fragmentation) while delivering superior
    performance for any non-trivial ruleset (>1 pattern).
 3. **Low Break-Even Point**: Even against the "fast but unreliable" Boyer–Moore algorithm, Strider takes the lead once
-   your ruleset exceeds just **~7** patterns.
+   your ruleset exceeds just **~4** patterns.
 
 ## Installation
 
