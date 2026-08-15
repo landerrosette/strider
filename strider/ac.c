@@ -30,6 +30,7 @@ struct strider_ac_node {
 	struct list_head transitions;
 	struct list_head outputs;
 	struct strider_ac_node *failure;
+	struct strider_ac_node *output_link;
 	u32 state_id;
 	u32 base_val;
 	struct list_head list; // for traversal
@@ -51,6 +52,7 @@ struct strider_ac {
 	u32 *base;
 	u32 *check;
 	u32 *failures;
+	u32 *output_links;
 	struct list_head *outputs; // array of lists of struct strider_ac_output
 	u32 arr_size;
 	struct rcu_head rcu;
@@ -176,6 +178,9 @@ static void strider_ac_trie_link_failures(struct strider_ac_trie *trie)
 					break;
 				}
 			}
+			child->output_link = !list_empty(&child->failure->outputs) ?
+						     child->failure :
+						     child->failure->output_link;
 			list_add_tail(&child->list, &queue);
 		}
 	}
@@ -314,10 +319,15 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
 		ret = -ENOMEM;
 		goto err_free_check;
 	}
+	ac->output_links = kvcalloc(arr_size, sizeof(*ac->output_links), GFP_KERNEL);
+	if (!ac->output_links) {
+		ret = -ENOMEM;
+		goto err_free_failures;
+	}
 	ac->outputs = kvcalloc(arr_size, sizeof(*ac->outputs), GFP_KERNEL);
 	if (!ac->outputs) {
 		ret = -ENOMEM;
-		goto err_free_failures;
+		goto err_free_output_links;
 	}
 	for (u32 i = 0; i < arr_size; ++i)
 		INIT_LIST_HEAD(&ac->outputs[i]);
@@ -331,6 +341,8 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
 		list_del(&node->list);
 		ac->base[node->state_id] = node->base_val;
 		ac->failures[node->state_id] = node->failure->state_id;
+		if (node->output_link)
+			ac->output_links[node->state_id] = node->output_link->state_id;
 		list_replace_init(&node->outputs,
 				  &ac->outputs[node->state_id]); // steal list of outputs
 
@@ -345,6 +357,8 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
 	strider_ac_trie_destroy(trie);
 	return ac;
 
+err_free_output_links:
+	kvfree(ac->output_links);
 err_free_failures:
 	kvfree(ac->failures);
 err_free_check:
@@ -368,6 +382,7 @@ static void strider_ac_destroy(struct strider_ac *ac)
 		}
 	}
 	kvfree(ac->outputs);
+	kvfree(ac->output_links);
 	kvfree(ac->failures);
 	kvfree(ac->check);
 	kvfree(ac->base);
@@ -409,10 +424,16 @@ int strider_ac_match(struct strider_ac_match_state *state, const u8 *data, size_
 				break;
 		}
 
-		for (u32 out = ac_state; out != STRIDER_AC_ROOT_STATE_ID; out = ac->failures[out]) {
-			if (!list_empty(&ac->outputs[out])) {
-				const struct strider_ac_output *output;
-				list_for_each_entry(output, &ac->outputs[out], list) {
+		if (ac_state != STRIDER_AC_ROOT_STATE_ID) {
+			const struct strider_ac_output *output;
+			list_for_each_entry(output, &ac->outputs[ac_state], list) {
+				ret = cb(output->target, i, cb_ctx);
+				if (ret != 0)
+					goto out;
+			}
+			for (u32 link = ac->output_links[ac_state]; link;
+			     link = ac->output_links[link]) {
+				list_for_each_entry(output, &ac->outputs[link], list) {
 					ret = cb(output->target, i, cb_ctx);
 					if (ret != 0)
 						goto out;
