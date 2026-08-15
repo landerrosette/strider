@@ -136,7 +136,7 @@ static int strider_ac_trie_add_targets(struct strider_ac_trie *trie,
 				if (!child)
 					return -ENOMEM;
 				if (check_add_overflow(trie->num_nodes, 1, &trie->num_nodes) != 0)
-					return -ENOMEM;
+					return -EOVERFLOW;
 			}
 			node = child;
 		}
@@ -200,7 +200,7 @@ static int strider_ac_trie_assign_state_ids(struct strider_ac_trie *trie)
 {
 	u32 arr_size;
 	if (check_add_overflow(trie->num_nodes, 256, &arr_size) != 0)
-		return -ENOMEM;
+		return -EOVERFLOW;
 	unsigned long *occupied = bitmap_zalloc(arr_size, GFP_KERNEL);
 	if (!occupied)
 		return -ENOMEM;
@@ -236,7 +236,7 @@ retry:
 			u32 new_arr_size;
 			if (check_mul_overflow(arr_size, 2, &new_arr_size) != 0) {
 				bitmap_free(occupied);
-				return -ENOMEM;
+				return -EOVERFLOW;
 			}
 			unsigned long *new_occupied = bitmap_zalloc(new_arr_size, GFP_KERNEL);
 			if (!new_occupied) {
@@ -296,7 +296,7 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
 	u32 arr_size;
 	// make arrays large enough to eliminate match-time bounds check
 	if (check_add_overflow(trie->max_base_val, 256, &arr_size) != 0) {
-		ret = -ENOMEM;
+		ret = -EOVERFLOW;
 		goto err;
 	}
 	struct strider_ac *ac = kmalloc(sizeof(*ac), GFP_KERNEL);
