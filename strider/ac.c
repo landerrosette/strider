@@ -397,6 +397,8 @@ static void strider_ac_destroy_rcu_cb(struct rcu_head *rcu)
 
 void strider_ac_destroy_rcu(struct strider_ac *ac)
 {
+	if (!ac)
+		return;
 	call_rcu(&ac->rcu, strider_ac_destroy_rcu_cb);
 }
 
