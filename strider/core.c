@@ -131,15 +131,19 @@ static int __net_init strider_net_init(struct net *net)
 static void __net_exit strider_net_exit(struct net *net)
 {
 	struct strider_net *sn = strider_pernet(net);
-	down_write(&sn->strider_sets_ht_lock);
+	HLIST_HEAD(dispose_list);
 	struct strider_set *set;
 	struct hlist_node *tmp;
 	int bkt;
+
+	down_write(&sn->strider_sets_ht_lock);
 	hash_for_each_safe(sn->strider_sets_ht, bkt, tmp, set, list) {
 		hash_del(&set->list);
-		strider_set_put(set);
+		hlist_add_head(&set->list, &dispose_list);
 	}
 	up_write(&sn->strider_sets_ht_lock);
+	hlist_for_each_entry_safe(set, tmp, &dispose_list, list)
+		strider_set_put(set);
 }
 
 static struct pernet_operations strider_net_ops __read_mostly = {
