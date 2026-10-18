@@ -38,10 +38,9 @@
 struct strider_set {
 	struct strider_ac __rcu *ac;
 	struct mutex lock;
-	struct hlist_node list;
-	struct rcu_head rcu;
-	refcount_t refcount;
 	struct list_head patterns;
+	struct hlist_node list;
+	refcount_t refcount;
 	char name[STRIDER_MAX_SET_NAME_SIZE];
 };
 
@@ -70,18 +69,15 @@ static struct strider_net *strider_pernet(struct net *net)
 
 static void strider_set_destroy(struct strider_set *set)
 {
-	mutex_lock(&set->lock);
-	pr_debug("set '%s': destroying\n", set->name);
 	struct strider_pattern *entry, *tmp;
+
+	pr_debug("set '%s': destroying\n", set->name);
 	list_for_each_entry_safe(entry, tmp, &set->patterns, list) {
 		list_del(&entry->list);
 		kfree(entry);
 	}
-	struct strider_ac *ac = rcu_dereference_protected(set->ac, lockdep_is_held(&set->lock));
-	if (ac)
-		strider_ac_destroy_rcu(ac);
-	mutex_unlock(&set->lock);
-	kfree_rcu(set, rcu);
+	strider_ac_destroy_rcu(rcu_dereference_protected(set->ac, 1));
+	kfree(set);
 	module_put(THIS_MODULE);
 }
 
