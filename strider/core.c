@@ -86,6 +86,7 @@ static struct strider_set *strider_set_lookup_locked(struct strider_net *sn, con
 {
 	u32 hash_key = jhash(set_name, strlen(set_name), 0);
 	struct strider_set *set;
+
 	hash_for_each_possible(sn->strider_sets_ht, set, list, hash_key) {
 		if (strcmp(set->name, set_name) == 0)
 			return set;
@@ -96,10 +97,11 @@ static struct strider_set *strider_set_lookup_locked(struct strider_net *sn, con
 static const struct strider_ac_target *strider_pattern_get_target(void *ctx)
 {
 	struct strider_pattern_iter_ctx *iter_ctx = ctx;
+	const struct strider_ac_target *ret;
+
 	if (list_is_head(iter_ctx->pos, iter_ctx->head))
 		return NULL;
-	const struct strider_ac_target *ret =
-		&list_entry(iter_ctx->pos, struct strider_pattern, list)->ac_target;
+	ret = &list_entry(iter_ctx->pos, struct strider_pattern, list)->ac_target;
 	iter_ctx->pos = iter_ctx->pos->next;
 	return ret;
 }
@@ -124,6 +126,7 @@ static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&s
 static int __net_init strider_net_init(struct net *net)
 {
 	struct strider_net *sn = strider_pernet(net);
+
 	hash_init(sn->strider_sets_ht);
 	init_rwsem(&sn->strider_sets_ht_lock);
 	return 0;
@@ -309,8 +312,10 @@ int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pat
 struct strider_set *strider_set_get(struct net *net, const char *set_name)
 {
 	struct strider_net *sn = strider_pernet(net);
+	struct strider_set *set;
+
 	down_read(&sn->strider_sets_ht_lock);
-	struct strider_set *set = strider_set_lookup_locked(sn, set_name);
+	set = strider_set_lookup_locked(sn, set_name);
 	if (set) {
 		pr_debug("set '%s': refcount=++%u\n", set->name, refcount_read(&set->refcount));
 		refcount_inc(&set->refcount);
@@ -339,17 +344,18 @@ static int strider_match_skb_cb(const struct strider_ac_target *target, size_t p
 bool strider_match_skb(const struct strider_set *set, struct sk_buff *skb, unsigned int from,
 		       unsigned int to)
 {
-	rcu_read_lock();
-	struct strider_ac *ac = rcu_dereference(set->ac);
+	struct strider_ac_match_state ac_state;
+	struct skb_seq_state skb_state;
+	struct strider_ac *ac;
+	const u8 *frag;
 	bool ret = false;
+
+	rcu_read_lock();
+	ac = rcu_dereference(set->ac);
 	if (unlikely(!ac))
 		goto out;
-
-	struct skb_seq_state skb_state;
-	skb_prepare_seq_read(skb, from, to, &skb_state);
-	struct strider_ac_match_state ac_state;
 	strider_ac_match_init(ac, &ac_state);
-	const u8 *frag;
+	skb_prepare_seq_read(skb, from, to, &skb_state);
 	for (unsigned int consumed = 0, frag_len;
 	     (frag_len = skb_seq_read(consumed, &frag, &skb_state)) > 0; consumed += frag_len) {
 		strider_ac_match(&ac_state, frag, frag_len, strider_match_skb_cb, &ret);
@@ -358,7 +364,6 @@ bool strider_match_skb(const struct strider_set *set, struct sk_buff *skb, unsig
 			break;
 		}
 	}
-
 out:
 	rcu_read_unlock();
 	return ret;
