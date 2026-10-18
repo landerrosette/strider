@@ -287,22 +287,22 @@ struct strider_ac *strider_ac_build(const struct strider_ac_target *(*get_target
 	trie->num_nodes = 1;
 	int ret = strider_ac_trie_add_targets(trie, get_target, iter_ctx);
 	if (ret < 0)
-		goto err;
+		goto err_destroy_trie;
 	strider_ac_trie_link_failures(trie);
 	ret = strider_ac_trie_assign_state_ids(trie);
 	if (ret < 0)
-		goto err;
+		goto err_destroy_trie;
 
 	u32 arr_size;
 	// make arrays large enough to eliminate match-time bounds check
 	if (check_add_overflow(trie->max_base_val, 256, &arr_size)) {
 		ret = -EOVERFLOW;
-		goto err;
+		goto err_destroy_trie;
 	}
 	struct strider_ac *ac = kmalloc(sizeof(*ac), GFP_KERNEL);
 	if (!ac) {
 		ret = -ENOMEM;
-		goto err;
+		goto err_destroy_trie;
 	}
 	ac->base = kvcalloc(arr_size, sizeof(*ac->base), GFP_KERNEL);
 	if (!ac->base) {
@@ -367,7 +367,7 @@ err_free_base:
 	kvfree(ac->base);
 err_free_ac:
 	kfree(ac);
-err:
+err_destroy_trie:
 	strider_ac_trie_destroy(trie);
 	return ERR_PTR(ret);
 }
