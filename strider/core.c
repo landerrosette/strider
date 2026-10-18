@@ -106,17 +106,18 @@ static const struct strider_ac_target *strider_pattern_get_target(void *ctx)
 
 static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&set->lock)
 {
-	struct strider_pattern_iter_ctx iter_ctx = { &set->patterns, set->patterns.next };
-	struct strider_ac *new_ac =
-		!list_empty(&set->patterns) ?
-			strider_ac_build(strider_pattern_get_target, &iter_ctx) :
-			NULL;
-	if (IS_ERR(new_ac))
-		return PTR_ERR(new_ac);
-	struct strider_ac *old_ac =
-		rcu_replace_pointer(set->ac, new_ac, lockdep_is_held(&set->lock));
-	if (old_ac)
-		strider_ac_destroy_rcu(old_ac);
+	struct strider_ac *new_ac = NULL;
+	struct strider_ac *old_ac;
+
+	if (!list_empty(&set->patterns)) {
+		struct strider_pattern_iter_ctx iter_ctx = { &set->patterns, set->patterns.next };
+
+		new_ac = strider_ac_build(strider_pattern_get_target, &iter_ctx);
+		if (IS_ERR(new_ac))
+			return PTR_ERR(new_ac);
+	}
+	old_ac = rcu_replace_pointer(set->ac, new_ac, lockdep_is_held(&set->lock));
+	strider_ac_destroy_rcu(old_ac);
 	return 0;
 }
 
@@ -166,21 +167,22 @@ void strider_core_exit(void)
 
 int strider_set_create(struct net *net, const char *set_name)
 {
+	struct strider_net *sn = strider_pernet(net);
+	struct strider_set *new_set;
+	int ret;
+
 	if (!try_module_get(THIS_MODULE))
 		return -ENODEV;
-
-	int ret = 0;
-	struct strider_set *new_set = kzalloc(sizeof(*new_set), GFP_KERNEL);
+	new_set = kzalloc(sizeof(*new_set), GFP_KERNEL);
 	if (!new_set) {
 		ret = -ENOMEM;
-		goto err;
+		goto err_put;
 	}
 	strscpy(new_set->name, set_name, STRIDER_MAX_SET_NAME_SIZE);
-	INIT_LIST_HEAD(&new_set->patterns);
 	mutex_init(&new_set->lock);
+	INIT_LIST_HEAD(&new_set->patterns);
 	refcount_set(&new_set->refcount, 1);
 
-	struct strider_net *sn = strider_pernet(net);
 	down_write(&sn->strider_sets_ht_lock);
 	if (strider_set_lookup_locked(sn, new_set->name)) {
 		ret = -EEXIST;
@@ -189,14 +191,13 @@ int strider_set_create(struct net *net, const char *set_name)
 	hash_add(sn->strider_sets_ht, &new_set->list,
 		 jhash(new_set->name, strlen(new_set->name), 0));
 	up_write(&sn->strider_sets_ht_lock);
-
 	pr_debug("set '%s': created\n", new_set->name);
-	return ret;
+	return 0;
 
 err_unlock:
 	up_write(&sn->strider_sets_ht_lock);
 	kfree(new_set);
-err:
+err_put:
 	module_put(THIS_MODULE);
 	return ret;
 }
@@ -204,44 +205,55 @@ err:
 int strider_set_remove(struct net *net, const char *set_name)
 {
 	struct strider_net *sn = strider_pernet(net);
+	struct strider_set *set;
+	int ret;
+
 	down_write(&sn->strider_sets_ht_lock);
-	struct strider_set *set = strider_set_lookup_locked(sn, set_name);
+	set = strider_set_lookup_locked(sn, set_name);
 	if (!set) {
-		up_write(&sn->strider_sets_ht_lock);
-		return -ENOENT;
+		ret = -ENOENT;
+		goto err_unlock;
 	}
 	if (refcount_read(&set->refcount) > 1) {
-		up_write(&sn->strider_sets_ht_lock);
-		return -EBUSY;
+		ret = -EBUSY;
+		goto err_unlock;
 	}
 	hash_del(&set->list);
 	up_write(&sn->strider_sets_ht_lock);
 	pr_debug("set '%s': removed\n", set->name);
 	strider_set_put(set);
 	return 0;
+
+err_unlock:
+	up_write(&sn->strider_sets_ht_lock);
+	return ret;
 }
 
 int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len)
 {
-	struct strider_pattern *new_entry = kmalloc(struct_size(new_entry, data, len), GFP_KERNEL);
-	if (!new_entry)
-		return -ENOMEM;
+	struct strider_pattern *new_entry;
+	const struct strider_pattern *entry;
+	struct strider_set *set;
+	int ret;
+
+	set = strider_set_get(net, set_name);
+	if (IS_ERR(set))
+		return PTR_ERR(set);
+	new_entry = kmalloc(struct_size(new_entry, data, len), GFP_KERNEL);
+	if (!new_entry) {
+		ret = -ENOMEM;
+		goto err_put;
+	}
 	memcpy(new_entry->data, pattern, len);
 	new_entry->ac_target.pattern = new_entry->data;
 	new_entry->ac_target.pattern_len = len;
 
-	struct strider_set *set = strider_set_get(net, set_name);
-	if (IS_ERR(set))
-		return PTR_ERR(set);
 	mutex_lock(&set->lock);
-
-	const struct strider_pattern *entry;
-	int ret = 0;
 	list_for_each_entry(entry, &set->patterns, list) {
 		if (entry->ac_target.pattern_len == len &&
 		    memcmp(entry->ac_target.pattern, pattern, len) == 0) {
 			ret = -EEXIST;
-			goto err;
+			goto err_unlock;
 		}
 	}
 	list_add(&new_entry->list, &set->patterns);
@@ -253,45 +265,42 @@ int strider_set_add_pattern(struct net *net, const char *set_name, const u8 *pat
 		 new_entry->data);
 	mutex_unlock(&set->lock);
 	strider_set_put(set);
-
-	return ret;
+	return 0;
 
 err_list_del:
 	list_del(&new_entry->list);
-err:
+err_unlock:
 	mutex_unlock(&set->lock);
-	strider_set_put(set);
 	kfree(new_entry);
+err_put:
+	strider_set_put(set);
 	return ret;
 }
 
 int strider_set_del_pattern(struct net *net, const char *set_name, const u8 *pattern, size_t len)
 {
-	struct strider_set *set = strider_set_get(net, set_name);
+	struct strider_pattern *entry, *tmp;
+	struct strider_set *set;
+	int ret;
+
+	set = strider_set_get(net, set_name);
 	if (IS_ERR(set))
 		return PTR_ERR(set);
 	mutex_lock(&set->lock);
-
-	struct strider_pattern *entry, *tmp;
-	int ret = -ENOENT;
+	ret = -ENOENT;
 	list_for_each_entry_safe(entry, tmp, &set->patterns, list) {
 		if (entry->ac_target.pattern_len == len &&
 		    memcmp(entry->ac_target.pattern, pattern, len) == 0) {
 			list_del(&entry->list);
 			ret = strider_set_refresh_ac_locked(set);
-			if (ret < 0)
-				goto err;
+			if (ret < 0) {
+				list_add(&entry->list, &set->patterns);
+				break;
+			}
 			kfree(entry);
 			break;
 		}
 	}
-	mutex_unlock(&set->lock);
-	strider_set_put(set);
-
-	return ret;
-
-err:
-	list_add(&entry->list, &set->patterns);
 	mutex_unlock(&set->lock);
 	strider_set_put(set);
 	return ret;
@@ -313,11 +322,11 @@ EXPORT_SYMBOL_GPL(strider_set_get);
 
 void strider_set_put(struct strider_set *set)
 {
-	if (set) {
-		pr_debug("set '%s': refcount=--%u\n", set->name, refcount_read(&set->refcount));
-		if (refcount_dec_and_test(&set->refcount))
-			strider_set_destroy(set);
-	}
+	if (IS_ERR_OR_NULL(set))
+		return;
+	pr_debug("set '%s': refcount=--%u\n", set->name, refcount_read(&set->refcount));
+	if (refcount_dec_and_test(&set->refcount))
+		strider_set_destroy(set);
 }
 EXPORT_SYMBOL_GPL(strider_set_put);
 
