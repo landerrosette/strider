@@ -56,8 +56,8 @@ struct strider_pattern_iter_ctx {
 };
 
 struct strider_net {
-	DECLARE_HASHTABLE(strider_sets_ht, STRIDER_SETS_HASH_BITS);
 	struct rw_semaphore strider_sets_ht_lock;
+	DECLARE_HASHTABLE(strider_sets_ht, STRIDER_SETS_HASH_BITS);
 };
 
 static unsigned int strider_net_id __read_mostly;
