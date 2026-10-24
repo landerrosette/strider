@@ -110,8 +110,9 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern)
 		} else if (s[i] == '|') {
 			hex_flag = !hex_flag;
 			if (hex_flag) {
+				/* get past any initial whitespace just after the '|' */
 				while (s[i + 1] == ' ')
-					++i; // get past any initial whitespace just after the '|'
+					++i;
 			}
 			if (i + 1 >= len)
 				break;
@@ -147,12 +148,14 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern)
 				return -1;
 			}
 			sscanf(&s[i], "%2hhx", &pattern->data[pos]);
-			if (s[i + 2] == ' ') // space included in the hex block
+
+			/* space included in the hex block */
+			if (s[i + 2] == ' ')
 				i += 3;
 			else
 				i += 2;
 		} else {
-			// the char is not part of hex data, so just copy
+			/* the char is not part of hex data, so just copy */
 			pattern->data[pos] = s[i++];
 		}
 	}

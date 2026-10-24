@@ -20,8 +20,8 @@ struct xt_strider_info {
 	char set_name[STRIDER_MAX_SET_NAME_SIZE];
 	__u8 flags;
 
-	// used internally by the kernel
+	/* used internally by the kernel */
 	struct strider_set *set __attribute__((aligned(8)));
 };
 
-#endif // STRIDER_XT_STRIDER_H
+#endif /* STRIDER_XT_STRIDER_H */

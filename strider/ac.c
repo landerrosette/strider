@@ -33,7 +33,7 @@ struct strider_ac_node {
 	struct strider_ac_node *output_link;
 	u32 state_id;
 	u32 base_val;
-	struct list_head list; // for traversal
+	struct list_head list; /* for traversal */
 };
 
 struct strider_ac_transition {
@@ -53,7 +53,7 @@ struct strider_ac {
 	u32 *check;
 	u32 *failures;
 	u32 *output_links;
-	struct list_head *outputs; // array of lists of struct strider_ac_output
+	struct list_head *outputs; /* array of lists of struct strider_ac_output */
 	u32 arr_size;
 	struct rcu_head rcu;
 };
