@@ -22,6 +22,7 @@ static bool strider_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_strider_info *info = par->matchinfo;
 	bool invert = info->flags & XT_STRIDER_FLAG_INVERT;
+
 	return strider_match_skb(info->set, (struct sk_buff *)skb, info->from_offset,
 				 info->to_offset) ^
 	       invert;
@@ -30,13 +31,17 @@ static bool strider_mt(const struct sk_buff *skb, struct xt_action_param *par)
 static int strider_mt_check(const struct xt_mtchk_param *par)
 {
 	struct xt_strider_info *info = par->matchinfo;
+	struct strider_set *set;
+
 	if (info->from_offset > info->to_offset)
 		return -EINVAL;
 	if (info->set_name[STRIDER_MAX_SET_NAME_SIZE - 1] != '\0')
 		return -EINVAL;
-	struct strider_set *set = strider_set_get(par->net, info->set_name);
+
+	set = strider_set_get(par->net, info->set_name);
 	if (IS_ERR(set))
 		return PTR_ERR(set);
+
 	info->set = set;
 	return 0;
 }

@@ -15,14 +15,18 @@
 
 static int __init strider_module_init(void)
 {
-	int ret = strider_core_init();
+	int ret;
+
+	ret = strider_core_init();
 	if (ret < 0)
 		return ret;
+
 	ret = strider_netlink_init();
 	if (ret < 0) {
 		strider_core_exit();
 		return ret;
 	}
+
 	pr_debug("module loaded\n");
 	return ret;
 }

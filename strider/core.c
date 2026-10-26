@@ -84,10 +84,10 @@ static void strider_set_destroy(struct strider_set *set)
 static struct strider_set *strider_set_lookup_locked(struct strider_net *sn, const char *set_name)
 	__must_hold(&sn->strider_sets_ht_lock)
 {
-	u32 hash_key = jhash(set_name, strlen(set_name), 0);
 	struct strider_set *set;
 
-	hash_for_each_possible(sn->strider_sets_ht, set, list, hash_key) {
+	hash_for_each_possible(sn->strider_sets_ht, set, list,
+			       jhash(set_name, strlen(set_name), 0)) {
 		if (strcmp(set->name, set_name) == 0)
 			return set;
 	}
@@ -112,9 +112,9 @@ static int strider_set_refresh_ac_locked(struct strider_set *set) __must_hold(&s
 	struct strider_ac *old_ac;
 
 	if (!list_empty(&set->patterns)) {
-		struct strider_pattern_iter_ctx iter_ctx = { &set->patterns, set->patterns.next };
-
-		new_ac = strider_ac_build(strider_pattern_get_target, &iter_ctx);
+		new_ac = strider_ac_build(strider_pattern_get_target,
+					  &(struct strider_pattern_iter_ctx){ &set->patterns,
+									      set->patterns.next });
 		if (IS_ERR(new_ac))
 			return PTR_ERR(new_ac);
 	}

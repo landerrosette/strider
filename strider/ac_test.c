@@ -41,9 +41,12 @@ struct strider_ac_test_match_info {
 static int strider_ac_test_resource_init(struct kunit_resource *res, void *ctx)
 {
 	struct strider_ac_test_target_iter *iter = ctx;
-	struct strider_ac *ac = strider_ac_build(iter->get_target, iter->iter_ctx);
+	struct strider_ac *ac;
+
+	ac = strider_ac_build(iter->get_target, iter->iter_ctx);
 	if (IS_ERR(ac))
 		return PTR_ERR(ac);
+
 	res->data = ac;
 	return 0;
 }
@@ -56,8 +59,10 @@ static void strider_ac_test_resource_free(struct kunit_resource *res)
 static const struct strider_ac_target *strider_ac_test_get_target(void *ctx)
 {
 	struct strider_ac_test_target_iter_ctx *iter_ctx = ctx;
+
 	if (iter_ctx->targets[iter_ctx->pos].id == -1)
 		return NULL;
+
 	return &iter_ctx->targets[iter_ctx->pos++].ac_target;
 }
 
@@ -65,9 +70,10 @@ static int strider_ac_test_match_cb(const struct strider_ac_target *ac_target, s
 				    void *ctx)
 {
 	struct strider_ac_test_match_info *info = ctx;
+	unsigned int found_id;
+
 	++info->match_count;
-	unsigned int found_id =
-		container_of(ac_target, struct strider_ac_test_target, ac_target)->id;
+	found_id = container_of(ac_target, struct strider_ac_test_target, ac_target)->id;
 	KUNIT_ASSERT_LT(info->test, found_id, STRIDER_AC_TEST_MAX_TARGETS);
 	info->found_id_mask |= 1U << found_id;
 	return 0;
@@ -77,23 +83,25 @@ static void strider_ac_test_case_run(struct kunit *test, const char *patterns[],
 				     int expected_match_count, unsigned int expected_id_mask)
 {
 	struct strider_ac_test_target targets[STRIDER_AC_TEST_MAX_TARGETS + 1];
+	struct strider_ac_test_match_info info = { .test = test };
+	struct strider_ac_match_state state;
+	struct strider_ac *ac;
 	int i;
+
 	for (i = 0; patterns[i]; ++i)
 		targets[i] = (struct strider_ac_test_target){
 			(struct strider_ac_target){ (const u8 *)patterns[i], strlen(patterns[i]) },
 			i
 		};
 	targets[i].id = -1;
-	struct strider_ac_test_target_iter iter = {
-		strider_ac_test_get_target, &(struct strider_ac_test_target_iter_ctx){ targets, 0 }
-	};
-	struct strider_ac *ac = kunit_alloc_resource(test, strider_ac_test_resource_init,
-						     strider_ac_test_resource_free, GFP_KERNEL,
-						     &iter);
+
+	ac = kunit_alloc_resource(
+		test, strider_ac_test_resource_init, strider_ac_test_resource_free, GFP_KERNEL,
+		&(struct strider_ac_test_target_iter){
+			strider_ac_test_get_target,
+			&(struct strider_ac_test_target_iter_ctx){ targets, 0 } });
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ac);
 
-	struct strider_ac_test_match_info info = { .test = test };
-	struct strider_ac_match_state state;
 	strider_ac_match_init(ac, &state);
 	strider_ac_match(&state, (const u8 *)data, strlen(data), strider_ac_test_match_cb, &info);
 	KUNIT_EXPECT_EQ(test, info.match_count, expected_match_count);
