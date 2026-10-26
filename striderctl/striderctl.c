@@ -170,23 +170,25 @@ struct strider_nl_connection {
 
 static int strider_nl_connect(struct strider_nl_connection *conn)
 {
-	int ret = 0;
+	int ret;
+
 	conn->sock = nl_socket_alloc();
-	if (!conn->sock) {
-		ret = -NLE_NOMEM;
-		goto err;
-	}
+	if (!conn->sock)
+		return -NLE_NOMEM;
+
 	ret = genl_connect(conn->sock);
 	if (ret < 0)
-		goto err_sk_free;
+		goto err_free;
+
 	ret = genl_ctrl_resolve(conn->sock, STRIDER_GENL_FAMILY_NAME);
 	if (ret < 0)
-		goto err_sk_free;
+		goto err_free;
+
 	conn->family_id = ret;
 	return 0;
-err_sk_free:
+
+err_free:
 	nl_socket_free(conn->sock);
-err:
 	return ret;
 }
 
@@ -231,19 +233,19 @@ static int strider_nl_do_cmd(enum strider_cmd nl_cmd,
 	if (!msg) {
 		ret = -NLE_NOMEM;
 		fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
-		goto out;
+		goto out_disconnect;
 	}
 	if (!genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ, conn.family_id, 0, 0, nl_cmd,
 			 STRIDER_GENL_VERSION)) {
 		ret = -NLE_NOMEM;
 		fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
-		goto out_msg_free;
+		goto out_free;
 	}
 	for (int i = 0; add_attrs[i]; ++i) {
 		ret = add_attrs[i](msg, cb_data[i]);
 		if (ret < 0) {
 			fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
-			goto out_msg_free;
+			goto out_free;
 		}
 	}
 	int kernel_err = 0;
@@ -251,9 +253,10 @@ static int strider_nl_do_cmd(enum strider_cmd nl_cmd,
 	if (ret < 0)
 		fprintf(stderr, "%s: %s: %s\n", program_name,
 			kernel_err == 0 ? "netlink error" : "operation failed", nl_geterror(ret));
-out_msg_free:
+
+out_free:
 	nlmsg_free(msg);
-out:
+out_disconnect:
 	strider_nl_disconnect(&conn);
 	return ret;
 }
