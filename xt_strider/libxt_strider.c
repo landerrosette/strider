@@ -52,8 +52,7 @@ static const struct xt_option_entry strider_opts[] = {
 
 static void strider_init(struct xt_entry_match *match)
 {
-	struct xt_strider_info *info = (struct xt_strider_info *)match->data;
-	info->to_offset = UINT16_MAX;
+	((struct xt_strider_info *)match->data)->to_offset = UINT16_MAX;
 }
 
 static void strider_parse(struct xt_option_call *cb)
@@ -66,6 +65,7 @@ static void strider_parse(struct xt_option_call *cb)
 static void strider_save(const void *ip, const struct xt_entry_match *match)
 {
 	const struct xt_strider_info *info = (const struct xt_strider_info *)match->data;
+
 	if (info->flags & XT_STRIDER_FLAG_INVERT)
 		printf(" !");
 	printf(" --match-set %s", info->set_name);

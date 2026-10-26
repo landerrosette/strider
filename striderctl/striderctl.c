@@ -85,6 +85,7 @@ static int validate_set_name(const char *set_name)
 		fprintf(stderr, "%s: SET_NAME cannot be empty\n", program_name);
 		return -1;
 	}
+
 	return 0;
 }
 
@@ -97,11 +98,13 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern)
 		fprintf(stderr, "%s: PATTERN cannot be empty\n", program_name);
 		return -1;
 	}
+
 	for (size_t i = 0; i < len; ++pos) {
 		if (pos >= STRIDER_MAX_PATTERN_SIZE) {
 			fprintf(stderr, "%s: PATTERN too long\n", program_name);
 			return -1;
 		}
+
 		if (s[i] == '\\' && !hex_flag) {
 			literal_flag = true;
 		} else if (s[i] == '\\') {
@@ -109,11 +112,13 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern)
 			return -1;
 		} else if (s[i] == '|') {
 			hex_flag = !hex_flag;
+
 			if (hex_flag) {
 				/* get past any initial whitespace just after the '|' */
 				while (s[i + 1] == ' ')
 					++i;
 			}
+
 			if (i + 1 >= len)
 				break;
 			else
@@ -126,6 +131,7 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern)
 					program_name);
 				return -1;
 			}
+
 			pattern->data[pos] = s[i + 1];
 			i += 2;
 			literal_flag = false;
@@ -147,6 +153,7 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern)
 					s[i + 1]);
 				return -1;
 			}
+
 			sscanf(&s[i], "%2hhx", &pattern->data[pos]);
 
 			/* space included in the hex block */
@@ -159,6 +166,7 @@ static int parse_hex_string(const char *s, struct strider_pattern *pattern)
 			pattern->data[pos] = s[i++];
 		}
 	}
+
 	pattern->len = pos;
 	return 0;
 }
@@ -206,14 +214,20 @@ static int get_kernel_err(struct sockaddr_nl *nla, struct nlmsgerr *nlerr, void 
 static int strider_nl_exch_msg(struct strider_nl_connection *conn, struct nl_msg *msg,
 			       int *kernel_err)
 {
+	int ret;
+
 	struct nl_cb *cb = nl_cb_alloc(NL_CB_DEFAULT);
 	if (!cb)
 		return -NLE_NOMEM;
+
 	nl_cb_err(cb, NL_CB_CUSTOM, get_kernel_err, kernel_err);
-	int ret = nl_send_auto(conn->sock, msg);
+
+	ret = nl_send_auto(conn->sock, msg);
 	if (ret < 0)
 		goto out;
+
 	ret = nl_recvmsgs(conn->sock, cb);
+
 out:
 	nl_cb_put(cb);
 	return ret;
@@ -223,24 +237,29 @@ static int strider_nl_do_cmd(enum strider_cmd nl_cmd,
 			     int (*add_attrs[])(struct nl_msg *msg, const void *data),
 			     const void *cb_data[])
 {
+	int ret;
+
 	struct strider_nl_connection conn;
-	int ret = strider_nl_connect(&conn);
+	ret = strider_nl_connect(&conn);
 	if (ret < 0) {
 		fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
 		return ret;
 	}
+
 	struct nl_msg *msg = nlmsg_alloc();
 	if (!msg) {
 		ret = -NLE_NOMEM;
 		fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
 		goto out_disconnect;
 	}
+
 	if (!genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ, conn.family_id, 0, 0, nl_cmd,
 			 STRIDER_GENL_VERSION)) {
 		ret = -NLE_NOMEM;
 		fprintf(stderr, "%s: netlink error: %s\n", program_name, nl_geterror(ret));
 		goto out_free;
 	}
+
 	for (int i = 0; add_attrs[i]; ++i) {
 		ret = add_attrs[i](msg, cb_data[i]);
 		if (ret < 0) {
@@ -248,6 +267,7 @@ static int strider_nl_do_cmd(enum strider_cmd nl_cmd,
 			goto out_free;
 		}
 	}
+
 	int kernel_err = 0;
 	ret = strider_nl_exch_msg(&conn, msg, &kernel_err);
 	if (ret < 0)
@@ -269,14 +289,17 @@ static int add_attr_set_name(struct nl_msg *msg, const void *data)
 
 static int do_create_destroy(int argc, char *argv[], enum strider_cmd nl_cmd)
 {
+	int ret;
+
 	struct option options[] = {
 		{ "help", no_argument, NULL, 'h' },
 		{},
 	};
-	while (true) {
+	while (1) {
 		int c = getopt_long(argc, argv, ":h", options, NULL);
 		if (c == -1)
 			break;
+
 		switch (c) {
 		case 'h':
 			goto print_help;
@@ -292,11 +315,12 @@ static int do_create_destroy(int argc, char *argv[], enum strider_cmd nl_cmd)
 			optind + 1 < argc ? "many" : "few");
 		return -1;
 	}
-	const char *set_name = argv[optind];
 
-	int ret = validate_set_name(set_name);
+	const char *set_name = argv[optind];
+	ret = validate_set_name(set_name);
 	if (ret < 0)
 		return ret;
+
 	return strider_nl_do_cmd(
 		nl_cmd, (int (*[])(struct nl_msg *, const void *)){ add_attr_set_name, NULL },
 		(const void *[]){ set_name, NULL });
@@ -330,17 +354,19 @@ static int add_attr_pattern(struct nl_msg *msg, const void *data)
 
 static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd)
 {
-	int use_hex = false;
+	int ret;
 
+	int use_hex = false;
 	struct option options[] = {
 		{ "help", no_argument, NULL, 'h' },
 		{ "hex", no_argument, &use_hex, true },
 		{},
 	};
-	while (true) {
+	while (1) {
 		int c = getopt_long(argc, argv, ":h", options, NULL);
 		if (c == -1)
 			break;
+
 		switch (c) {
 		case 'h':
 			goto print_help;
@@ -358,12 +384,13 @@ static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd)
 			optind + 2 < argc ? "many" : "few");
 		return -1;
 	}
-	const char *set_name = argv[optind];
-	const char *pattern_str = argv[optind + 1];
 
-	int ret = validate_set_name(set_name);
+	const char *set_name = argv[optind];
+	ret = validate_set_name(set_name);
 	if (ret < 0)
 		return ret;
+
+	const char *pattern_str = argv[optind + 1];
 	struct strider_pattern pattern = {};
 	if (use_hex) {
 		ret = parse_hex_string(pattern_str, &pattern);
@@ -379,9 +406,11 @@ static int do_add_del(int argc, char *argv[], enum strider_cmd nl_cmd)
 			fprintf(stderr, "%s: PATTERN cannot be empty\n", program_name);
 			return -1;
 		}
+
 		memcpy(pattern.data, pattern_str, len);
 		pattern.len = len;
 	}
+
 	return strider_nl_do_cmd(nl_cmd,
 				 (int (*[])(struct nl_msg *, const void *)){
 					 add_attr_set_name, add_attr_pattern, NULL },
@@ -421,10 +450,11 @@ int main(int argc, char *argv[])
 		{ "version", no_argument, NULL, 'v' },
 		{},
 	};
-	while (true) {
+	while (1) {
 		int c = getopt_long(argc, argv, "+:hv", options, NULL);
 		if (c == -1)
 			break;
+
 		switch (c) {
 		case 'h':
 			goto print_help;
@@ -437,11 +467,11 @@ int main(int argc, char *argv[])
 			abort();
 		}
 	}
-
 	if (optind >= argc) {
 		fprintf(stderr, "%s: no command specified\n", program_name);
 		return EXIT_FAILURE;
 	}
+
 	const char *command_name = argv[optind];
 	const struct striderctl_command *command = NULL;
 	for (int i = 0; i < num_commands; ++i) {
@@ -457,9 +487,9 @@ int main(int argc, char *argv[])
 
 	argc -= optind;
 	argv += optind;
-	optind = 0; // reset
-	int ret = command->handler(argc, argv);
-	if (ret < 0)
+	optind = 0;
+
+	if (command->handler(argc, argv) < 0)
 		return EXIT_FAILURE;
 
 	return EXIT_SUCCESS;
@@ -468,6 +498,7 @@ print_help:
 	printf("%s [OPTIONS...] COMMAND ...\n", program_name);
 	printf("\n"
 	       "Commands:\n");
+
 	size_t max_name_len = 0;
 	for (int i = 0; i < num_commands; ++i) {
 		size_t len = strlen(all_commands[i].name);
@@ -477,6 +508,7 @@ print_help:
 	for (int i = 0; i < num_commands; ++i)
 		printf("  %-*s    %s\n", (int)max_name_len, all_commands[i].name,
 		       all_commands[i].description);
+
 	printf("\n"
 	       "Options:\n"
 	       "  -h, --help       Print this help information\n"
@@ -484,6 +516,7 @@ print_help:
 	       "\n"
 	       "Run '%s COMMAND --help' for more information on a command.\n",
 	       program_name);
+
 	return EXIT_SUCCESS;
 
 print_version:
